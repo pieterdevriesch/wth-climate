@@ -18,6 +18,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.helpers import device_registry as dr
 
+from .communication import COMMUNICATION_PATHS
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,13 +26,13 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 SCAN_INTERVAL = timedelta(seconds=30)
 REQUEST_TIMEOUT = 10
-STATUS_SECTIONS = (
-    "version",
-    "main",
-    "inputs",
-    "process",
-    "outputs",
-    "communications",
+STATUS_PATHS: tuple[tuple[str, ...], ...] = (
+    ("version",),
+    ("main",),
+    ("inputs",),
+    ("process",),
+    ("outputs",),
+    *COMMUNICATION_PATHS,
 )
 
 type WTHConfigEntry = ConfigEntry[WTHCoordinator]
@@ -103,24 +104,29 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch each status section separately and combine the responses."""
+        """Fetch each status path separately and combine the responses."""
         status: dict[str, Any] = {}
 
-        for section in STATUS_SECTIONS:
-            status[section] = await self._async_fetch_status_section(section)
+        for path in STATUS_PATHS:
+            section_data = await self._async_fetch_status_path(path)
+            target = status
+            for key in path[:-1]:
+                target = target.setdefault(key, {})
+            target[path[-1]] = section_data
 
         return status
 
-    async def _async_fetch_status_section(self, section: str) -> dict[str, Any]:
-        """Fetch and validate one status section from the device."""
-        url = f"http://{self.host}/get.json?f=$.status.{section}.*"
+    async def _async_fetch_status_path(self, path: tuple[str, ...]) -> dict[str, Any]:
+        """Fetch and validate one status path from the device."""
+        path_text = ".".join(path)
+        url = f"http://{self.host}/get.json?f=$.status.{path_text}.*"
 
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT):
                 async with self._session.get(url) as response:
                     if response.status != 200:
                         raise UpdateFailed(
-                            f"Error fetching {section} from {self.host}: "
+                            f"Error fetching {path_text} from {self.host}: "
                             f"HTTP {response.status}"
                         )
 
@@ -128,7 +134,7 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if not isinstance(data, dict):
                 raise UpdateFailed(
-                    f"Invalid {section} response from {self.host}: expected object"
+                    f"Invalid {path_text} response from {self.host}: expected object"
                 )
 
             warning = data.get("warning")
@@ -136,41 +142,45 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.warning(
                     "WTH UMR2 at %s returned a warning for %s: %s",
                     self.host,
-                    section,
+                    path_text,
                     warning,
                 )
 
             response_status = data.get("status")
             if not isinstance(response_status, dict):
                 raise UpdateFailed(
-                    f"Invalid {section} response from {self.host}: "
+                    f"Invalid {path_text} response from {self.host}: "
                     "missing status object"
                 )
 
-            section_data = response_status.get(section)
+            section_data: Any = response_status
+            for key in path:
+                if not isinstance(section_data, dict):
+                    section_data = None
+                    break
+                section_data = section_data.get(key)
+
             if not isinstance(section_data, dict) or not section_data:
                 raise UpdateFailed(
-                    f"Invalid {section} response from {self.host}: "
-                    f"missing or empty status.{section} object"
+                    f"Invalid {path_text} response from {self.host}: "
+                    f"missing or empty status.{path_text} object"
                 )
 
             return section_data
 
         except TimeoutError as err:
             raise UpdateFailed(
-                f"Timeout fetching {section} from {self.host}"
+                f"Timeout fetching {path_text} from {self.host}"
             ) from err
         except ClientError as err:
             raise UpdateFailed(
-                f"Error communicating with {self.host} while fetching {section}: {err}"
+                f"Error communicating with {self.host} while fetching {path_text}: {err}"
             ) from err
         except ValueError as err:
             raise UpdateFailed(
-                f"Invalid JSON while fetching {section} from {self.host}"
+                f"Invalid JSON while fetching {path_text} from {self.host}"
             ) from err
     
     async def async_shutdown(self) -> None:
         """Shutdown the coordinator."""
         await super().async_shutdown()
-
-

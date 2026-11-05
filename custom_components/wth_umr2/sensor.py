@@ -19,6 +19,11 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .communication import (
+    get_communication,
+    get_communication_devices,
+    get_process_communication,
+)
 from . import WTHCoordinator
 from .const import DOMAIN
 
@@ -688,12 +693,8 @@ class WTHFanlinkStatusSensor(WTHBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        fanlink = self.coordinator.data.get("communications", {}).get("fanlink", {})
-        raw_data = (
-            self.coordinator.data.get("process", {})
-            .get("communications", {})
-            .get("fanlink", {})
-        )
+        fanlink = get_communication(self.coordinator.data, "fanlink")
+        raw_data = get_process_communication(self.coordinator.data, "fanlink")
         return {
             "message": fanlink.get("message"),
             "raw_data": raw_data.get("rawData"),
@@ -727,17 +728,13 @@ class WTHCommunicationStatusSensor(WTHBaseSensor):
     @property
     def native_value(self) -> str | None:
         """Return the communication status."""
-        communication = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        )
+        communication = get_communication(self.coordinator.data, self._communication)
         return communication.get("state")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        communication = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        )
+        communication = get_communication(self.coordinator.data, self._communication)
         return {"message": communication.get("message")}
 
 
@@ -847,12 +844,8 @@ class WTHRFStatusSensor(WTHBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        rf = self.coordinator.data.get("communications", {}).get("rf", {})
-        raw_data = (
-            self.coordinator.data.get("process", {})
-            .get("communications", {})
-            .get("rf", {})
-        )
+        rf = get_communication(self.coordinator.data, "rf")
+        raw_data = get_process_communication(self.coordinator.data, "rf")
         return {
             "message": rf.get("message"),
             "raw_data": raw_data.get("rawData"),
@@ -879,12 +872,8 @@ class WTHModbusStatusSensor(WTHBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        modbus = self.coordinator.data.get("communications", {}).get("modbus", {})
-        process_modbus = (
-            self.coordinator.data.get("process", {})
-            .get("communications", {})
-            .get("modbus", {})
-        )
+        modbus = get_communication(self.coordinator.data, "modbus")
+        process_modbus = get_process_communication(self.coordinator.data, "modbus")
         return {
             "message": modbus.get("message"),
             "command": process_modbus.get("command"),
@@ -969,9 +958,9 @@ class WTHFanlinkDeviceSensor(WTHBaseSensor):
     @property
     def native_value(self) -> str | None:
         """Return the device type."""
-        devices = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        ).get("devices", [])
+        devices = get_communication_devices(
+            self.coordinator.data, self._communication
+        )
         device = _get_indexed_item(devices, self._index)
         if device is None:
             return None
@@ -982,9 +971,9 @@ class WTHFanlinkDeviceSensor(WTHBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        devices = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        ).get("devices", [])
+        devices = get_communication_devices(
+            self.coordinator.data, self._communication
+        )
         device = _get_indexed_item(devices, self._index)
         if device is None:
             return {}
@@ -1023,9 +1012,9 @@ class WTHCommunicationDeviceSensor(WTHBaseSensor):
     @property
     def native_value(self) -> str | None:
         """Return the device type."""
-        devices = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        ).get("devices", [])
+        devices = get_communication_devices(
+            self.coordinator.data, self._communication
+        )
         device = _get_indexed_item(devices, self._index)
         if device is None:
             return None
@@ -1036,9 +1025,9 @@ class WTHCommunicationDeviceSensor(WTHBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        devices = self.coordinator.data.get("communications", {}).get(
-            self._communication, {}
-        ).get("devices", [])
+        devices = get_communication_devices(
+            self.coordinator.data, self._communication
+        )
         device = _get_indexed_item(devices, self._index)
         if device is None:
             return {}

@@ -44,8 +44,9 @@ same host from being configured more than once.
 
 ## Entities
 
-One device is created for each configured regulator. The integration polls the six status sections separately every 30 seconds to
-stay within the controller's JSON response limit:
+One device is created for each configured regulator. The integration polls the status sections separately every 30 seconds to stay
+within the controller's JSON response limit. Communication subsections are
+requested individually because their device arrays can be large:
 
 ```text
 http://<host>/get.json?f=$.status.version.*
@@ -53,7 +54,13 @@ http://<host>/get.json?f=$.status.main.*
 http://<host>/get.json?f=$.status.inputs.*
 http://<host>/get.json?f=$.status.process.*
 http://<host>/get.json?f=$.status.outputs.*
-http://<host>/get.json?f=$.status.communications.*
+http://<host>/get.json?f=$.status.communications.fanlink.*
+http://<host>/get.json?f=$.status.communications.rf.*
+http://<host>/get.json?f=$.status.communications.modbus.*
+http://<host>/get.json?f=$.status.communications.bluetooth.*
+http://<host>/get.json?f=$.status.communications.ethernet.*
+http://<host>/get.json?f=$.status.communications.json.*
+http://<host>/get.json?f=$.status.communications.usb.*
 ```
 
 The responses are merged and used to create 114 sensors:
