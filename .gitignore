@@ -27,6 +27,3 @@ htmlcov/
 *.swo
 .DS_Store
 Thumbs.db
-
-# Local project history
-legacy docs/
