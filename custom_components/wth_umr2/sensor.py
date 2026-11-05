@@ -22,6 +22,19 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import WTHCoordinator
 from .const import DOMAIN
 
+
+def _get_indexed_item(items: Any, index: int) -> dict[str, Any] | None:
+    """Return an item by its controller-provided index."""
+    if not isinstance(items, list):
+        return None
+
+    for item in items:
+        if isinstance(item, dict) and item.get("index") == index:
+            return item
+
+    return None
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -50,13 +63,17 @@ async def async_setup_entry(
         WTHPumpSpeedSensor(coordinator, entry),
     ])
     
-    # Thermostat sensors (8 thermostats)
+    # Thermostat input sensors (8 inputs)
     for i in range(8):
         entities.extend([
             WTHThermostatSensor(coordinator, entry, i),
             WTHThermostatTemperatureSensor(coordinator, entry, i),
         ])
-    
+
+    # Thermostat process demand (10 controller channels)
+    for i in range(10):
+        entities.append(WTHThermostatDemandSensor(coordinator, entry, i))
+
     # Valve sensors (10 valves)
     for i in range(10):
         entities.append(WTHValveSensor(coordinator, entry, i))
@@ -66,6 +83,7 @@ async def async_setup_entry(
         WTHMaxInputSensor(coordinator, entry),
         WTHReturnInputSensor(coordinator, entry),
         WTHCondensInputSensor(coordinator, entry),
+        WTHPowerStealingSensor(coordinator, entry),
     ])
     
     # Temperature sensors (10 sensors)
@@ -79,11 +97,39 @@ async def async_setup_entry(
         WTHModbusStatusSensor(coordinator, entry),
         WTHBluetoothStatusSensor(coordinator, entry),
         WTHEthernetStatusSensor(coordinator, entry),
+        WTHJSONStatusSensor(coordinator, entry),
+        WTHUSBStatusSensor(coordinator, entry),
+        WTHFirmwareBuildSensor(coordinator, entry),
+        WTHAPIVersionSensor(coordinator, entry),
     ])
-    
-    # Fanlink devices (diagnostic)
+
+    # Communication devices (diagnostic)
     for i in range(10):
         entities.append(WTHFanlinkDeviceSensor(coordinator, entry, i))
+        entities.append(WTHCommunicationDeviceSensor(coordinator, entry, "rf", i))
+        entities.append(WTHCommunicationDeviceSensor(coordinator, entry, "modbus", i))
+        entities.append(WTHCommunicationDeviceSensor(coordinator, entry, "bluetooth", i))
+
+    # PID diagnostics
+    entities.extend([
+        WTHPIDSensor(coordinator, entry, "pValue", "PID P Value"),
+        WTHPIDSensor(coordinator, entry, "iValue", "PID I Value"),
+        WTHPIDSensor(coordinator, entry, "dValue", "PID D Value"),
+        WTHPIDSensor(
+            coordinator,
+            entry,
+            "pumpFactor",
+            "PID Pump Factor",
+            percentage=True,
+        ),
+        WTHPIDSensor(
+            coordinator,
+            entry,
+            "valveFactor",
+            "PID Valve Factor",
+            percentage=True,
+        ),
+    ])
     
     async_add_entities(entities)
 
@@ -346,9 +392,8 @@ class WTHThermostatSensor(WTHBaseSensor):
     def native_value(self) -> str | None:
         """Return the thermostat state."""
         thermostats = self.coordinator.data.get("inputs", {}).get("thermostats", [])
-        if self._index < len(thermostats):
-            return "on" if thermostats[self._index].get("isOn") else "off"
-        return None
+        thermostat = _get_indexed_item(thermostats, self._index)
+        return "on" if thermostat and thermostat.get("isOn") else "off" if thermostat else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -358,15 +403,43 @@ class WTHThermostatSensor(WTHBaseSensor):
         process_thermostats = self.coordinator.data.get("process", {}).get("thermostats", [])
         
         attrs = {}
-        if self._index < len(input_thermostats):
-            attrs["input_state"] = input_thermostats[self._index].get("isOn")
+        input_thermostat = _get_indexed_item(input_thermostats, self._index)
+        process_thermostat = _get_indexed_item(process_thermostats, self._index)
+
+        if input_thermostat:
+            attrs["input_state"] = input_thermostat.get("isOn")
         
-        if self._index < len(process_thermostats):
-            process_data = process_thermostats[self._index]
-            attrs["temperature"] = process_data.get("temperature")
-            attrs["setpoint"] = process_data.get("setpoint")
+        if process_thermostat:
+            attrs["temperature"] = process_thermostat.get("temperature")
+            attrs["setpoint"] = process_thermostat.get("setpoint")
         
         return attrs
+
+
+class WTHThermostatDemandSensor(WTHBaseSensor):
+    """Sensor for thermostat demand factor."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:thermostat"
+
+    def __init__(self, coordinator: WTHCoordinator, entry: ConfigEntry, index: int) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._index = index
+        self._attr_name = f"Thermostat {index + 1} Demand"
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_thermostat_{self._index}_demand"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the thermostat demand factor."""
+        thermostats = self.coordinator.data.get("process", {}).get("thermostats", [])
+        thermostat = _get_indexed_item(thermostats, self._index)
+        return thermostat.get("factor") if thermostat else None
 
 
 class WTHThermostatTemperatureSensor(WTHBaseSensor):
@@ -382,11 +455,8 @@ class WTHThermostatTemperatureSensor(WTHBaseSensor):
         self._index = index
         self._attr_name = f"Thermostat {index + 1} Temperature"
         thermostats = coordinator.data.get("process", {}).get("thermostats", [])
-        temperature = (
-            thermostats[index].get("temperature")
-            if index < len(thermostats)
-            else None
-        )
+        thermostat = _get_indexed_item(thermostats, index)
+        temperature = thermostat.get("temperature") if thermostat else None
         self._attr_entity_registry_enabled_default = (
             isinstance(temperature, (int, float)) and temperature > 0
         )
@@ -400,8 +470,9 @@ class WTHThermostatTemperatureSensor(WTHBaseSensor):
     def native_value(self) -> float | None:
         """Return the temperature."""
         thermostats = self.coordinator.data.get("process", {}).get("thermostats", [])
-        if self._index < len(thermostats):
-            temp = thermostats[self._index].get("temperature", 0.0)
+        thermostat = _get_indexed_item(thermostats, self._index)
+        if thermostat:
+            temp = thermostat.get("temperature", 0.0)
             return temp if temp > 0 else None
         return None
 
@@ -409,9 +480,10 @@ class WTHThermostatTemperatureSensor(WTHBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         thermostats = self.coordinator.data.get("process", {}).get("thermostats", [])
-        if self._index < len(thermostats):
+        thermostat = _get_indexed_item(thermostats, self._index)
+        if thermostat:
             return {
-                "setpoint": thermostats[self._index].get("setpoint"),
+                "setpoint": thermostat.get("setpoint"),
             }
         return {}
 
@@ -438,9 +510,8 @@ class WTHValveSensor(WTHBaseSensor):
     def native_value(self) -> int | None:
         """Return the valve state."""
         valves = self.coordinator.data.get("outputs", {}).get("valves", [])
-        if self._index < len(valves):
-            return valves[self._index].get("state")
-        return None
+        valve = _get_indexed_item(valves, self._index)
+        return valve.get("state") if valve else None
 
 
 class WTHMaxInputSensor(WTHBaseSensor):
@@ -522,6 +593,34 @@ class WTHCondensInputSensor(WTHBaseSensor):
         }
 
 
+class WTHPowerStealingSensor(WTHBaseSensor):
+    """Sensor for power-stealing thermostat status."""
+
+    _attr_name = "Power Stealing"
+    _attr_icon = "mdi:flash"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_power_stealing"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the power-stealing status."""
+        return self.coordinator.data.get("inputs", {}).get("powerstealing", {}).get(
+            "state"
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        powerstealing = self.coordinator.data.get("inputs", {}).get(
+            "powerstealing", {}
+        )
+        return {"message": powerstealing.get("message")}
+
+
 class WTHTemperatureSensor(WTHBaseSensor):
     """Sensor for temperature sensors."""
 
@@ -551,8 +650,9 @@ class WTHTemperatureSensor(WTHBaseSensor):
     def native_value(self) -> float | None:
         """Return the temperature."""
         sensors = self.coordinator.data.get("inputs", {}).get("tSensors", [])
-        if self._index < len(sensors):
-            temp = sensors[self._index].get("temperature", 0.0)
+        sensor = _get_indexed_item(sensors, self._index)
+        if sensor:
+            temp = sensor.get("temperature", 0.0)
             return temp if temp > 0 else None
         return None
 
@@ -560,9 +660,10 @@ class WTHTemperatureSensor(WTHBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         sensors = self.coordinator.data.get("inputs", {}).get("tSensors", [])
-        if self._index < len(sensors):
+        sensor = _get_indexed_item(sensors, self._index)
+        if sensor:
             return {
-                "serial_number": sensors[self._index].get("serialNumber"),
+                "serial_number": sensor.get("serialNumber"),
             }
         return {}
 
@@ -588,9 +689,142 @@ class WTHFanlinkStatusSensor(WTHBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         fanlink = self.coordinator.data.get("communications", {}).get("fanlink", {})
+        raw_data = (
+            self.coordinator.data.get("process", {})
+            .get("communications", {})
+            .get("fanlink", {})
+        )
         return {
             "message": fanlink.get("message"),
+            "raw_data": raw_data.get("rawData"),
         }
+
+
+class WTHCommunicationStatusSensor(WTHBaseSensor):
+    """Sensor for a communication interface status."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: WTHCoordinator,
+        entry: ConfigEntry,
+        communication: str,
+        name: str,
+        icon: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._communication = communication
+        self._attr_name = name
+        self._attr_icon = icon
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_{self._communication}_status"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the communication status."""
+        communication = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        )
+        return communication.get("state")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        communication = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        )
+        return {"message": communication.get("message")}
+
+
+class WTHJSONStatusSensor(WTHCommunicationStatusSensor):
+    """Sensor for JSON communication status."""
+
+    def __init__(self, coordinator: WTHCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry, "json", "JSON Status", "mdi:code-json")
+
+
+class WTHUSBStatusSensor(WTHCommunicationStatusSensor):
+    """Sensor for USB communication status."""
+
+    def __init__(self, coordinator: WTHCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry, "usb", "USB Status", "mdi:usb")
+
+
+class WTHPIDSensor(WTHBaseSensor):
+    """Sensor for a PID diagnostic value."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        coordinator: WTHCoordinator,
+        entry: ConfigEntry,
+        key: str,
+        name: str,
+        percentage: bool = False,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._key = key
+        self._attr_name = name
+        self._attr_icon = "mdi:tune-vertical"
+        if percentage:
+            self._attr_native_unit_of_measurement = PERCENTAGE
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_pid_{self._key}"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the PID value."""
+        pid = self.coordinator.data.get("process", {}).get("pid", {})
+        return pid.get(self._key)
+
+
+class WTHFirmwareBuildSensor(WTHBaseSensor):
+    """Sensor for firmware build number."""
+
+    _attr_name = "Firmware Build"
+    _attr_icon = "mdi:counter"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_firmware_build"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the firmware build number."""
+        return self.coordinator.data.get("version", {}).get("fwBuild")
+
+
+class WTHAPIVersionSensor(WTHBaseSensor):
+    """Sensor for the controller API version."""
+
+    _attr_name = "API Version"
+    _attr_icon = "mdi:code-json"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_api_version"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the controller API version."""
+        return self.coordinator.data.get("version", {}).get("json")
 
 
 class WTHRFStatusSensor(WTHBaseSensor):
@@ -614,8 +848,14 @@ class WTHRFStatusSensor(WTHBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         rf = self.coordinator.data.get("communications", {}).get("rf", {})
+        raw_data = (
+            self.coordinator.data.get("process", {})
+            .get("communications", {})
+            .get("rf", {})
+        )
         return {
             "message": rf.get("message"),
+            "raw_data": raw_data.get("rawData"),
         }
 
 
@@ -640,8 +880,15 @@ class WTHModbusStatusSensor(WTHBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
         modbus = self.coordinator.data.get("communications", {}).get("modbus", {})
+        process_modbus = (
+            self.coordinator.data.get("process", {})
+            .get("communications", {})
+            .get("modbus", {})
+        )
         return {
             "message": modbus.get("message"),
+            "command": process_modbus.get("command"),
+            "raw_data": process_modbus.get("rawData"),
         }
 
 
@@ -703,16 +950,16 @@ class WTHEthernetStatusSensor(WTHBaseSensor):
 
 
 class WTHFanlinkDeviceSensor(WTHBaseSensor):
-    """Sensor for Fanlink device."""
-
-    _attr_icon = "mdi:devices"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    """Sensor for a Fanlink device."""
 
     def __init__(self, coordinator: WTHCoordinator, entry: ConfigEntry, index: int) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, entry)
+        self._communication = "fanlink"
         self._index = index
         self._attr_name = f"Fanlink Device {index + 1}"
+        self._attr_icon = "mdi:devices"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def unique_id(self) -> str:
@@ -722,21 +969,82 @@ class WTHFanlinkDeviceSensor(WTHBaseSensor):
     @property
     def native_value(self) -> str | None:
         """Return the device type."""
-        devices = self.coordinator.data.get("communications", {}).get("fanlink", {}).get("devices", [])
-        if self._index < len(devices):
-            device_type = devices[self._index].get("type", "")
-            return device_type if device_type else "Not configured"
-        return None
+        devices = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        ).get("devices", [])
+        device = _get_indexed_item(devices, self._index)
+        if device is None:
+            return None
+
+        device_type = device.get("type", "")
+        return device_type if device_type else "Not configured"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        devices = self.coordinator.data.get("communications", {}).get("fanlink", {}).get("devices", [])
-        if self._index < len(devices):
-            device = devices[self._index]
-            return {
-                "serial_number": device.get("serialNumber"),
-                "last_seen": device.get("lastSeen"),
-                "last_learn": device.get("lastLearn"),
-            }
-        return {}
+        devices = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        ).get("devices", [])
+        device = _get_indexed_item(devices, self._index)
+        if device is None:
+            return {}
+
+        return {
+            "serial_number": device.get("serialNumber"),
+            "last_seen": device.get("lastSeen"),
+            "last_learn": device.get("lastLearn"),
+        }
+
+
+class WTHCommunicationDeviceSensor(WTHBaseSensor):
+    """Sensor for a device on a communication interface."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: WTHCoordinator,
+        entry: ConfigEntry,
+        communication: str,
+        index: int,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._communication = communication
+        self._index = index
+        self._attr_name = f"{communication.title()} Device {index + 1}"
+        self._attr_icon = "mdi:devices"
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_{self._communication}_device_{self._index}"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the device type."""
+        devices = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        ).get("devices", [])
+        device = _get_indexed_item(devices, self._index)
+        if device is None:
+            return None
+
+        device_type = device.get("type", "")
+        return device_type if device_type else "Not configured"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        devices = self.coordinator.data.get("communications", {}).get(
+            self._communication, {}
+        ).get("devices", [])
+        device = _get_indexed_item(devices, self._index)
+        if device is None:
+            return {}
+
+        return {
+            "serial_number": device.get("serialNumber"),
+            "last_seen": device.get("lastSeen"),
+            "last_learn": device.get("lastLearn"),
+        }
