@@ -29,7 +29,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     host = data[CONF_HOST]
-    url = f"http://{host}/get.json?f=$.status.version"
+    url = f"http://{host}/get.json?f=$.status.version.*"
     
     session = async_get_clientsession(hass)
     
@@ -45,6 +45,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                     not isinstance(data, dict)
                     or not isinstance(data.get("status"), dict)
                     or not isinstance(data["status"].get("version"), dict)
+                    or not data["status"]["version"]
                 ):
                     raise ValueError("Invalid response format")
                 
@@ -104,4 +105,3 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
-
