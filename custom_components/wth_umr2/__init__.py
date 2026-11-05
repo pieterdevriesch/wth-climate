@@ -113,7 +113,7 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_fetch_status_section(self, section: str) -> dict[str, Any]:
         """Fetch and validate one status section from the device."""
-        url = f"http://{self.host}/get.json?f=$.status.{section}"
+        url = f"http://{self.host}/get.json?f=$.status.{section}.*"
 
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT):
@@ -148,10 +148,10 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 )
 
             section_data = response_status.get(section)
-            if not isinstance(section_data, dict):
+            if not isinstance(section_data, dict) or not section_data:
                 raise UpdateFailed(
                     f"Invalid {section} response from {self.host}: "
-                    f"missing status.{section} object"
+                    f"missing or empty status.{section} object"
                 )
 
             return section_data
@@ -172,6 +172,5 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_shutdown(self) -> None:
         """Shutdown the coordinator."""
         await super().async_shutdown()
-
 
 

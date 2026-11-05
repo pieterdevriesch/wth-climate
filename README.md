@@ -4,6 +4,13 @@ This custom Home Assistant integration monitors a WTH UMR2 heating regulator ove
 the local network. It is not affiliated with WTH and currently provides read-only
 sensor entities; it does not send commands to the regulator.
 
+## Attribution
+
+This project is based on the original
+[WTH UMR2 Home Assistant project](https://github.com/AbeltjeNL/wth_umr2), released
+under the MIT License. It has been substantially revised for the controller's
+local JSON API and current Home Assistant integration behavior.
+
 ## Requirements
 
 - Home Assistant 2025.1.0 or newer
@@ -41,12 +48,12 @@ One device is created for each configured regulator. The integration polls the s
 stay within the controller's JSON response limit:
 
 ```text
-http://<host>/get.json?f=$.status.version
-http://<host>/get.json?f=$.status.main
-http://<host>/get.json?f=$.status.inputs
-http://<host>/get.json?f=$.status.process
-http://<host>/get.json?f=$.status.outputs
-http://<host>/get.json?f=$.status.communications
+http://<host>/get.json?f=$.status.version.*
+http://<host>/get.json?f=$.status.main.*
+http://<host>/get.json?f=$.status.inputs.*
+http://<host>/get.json?f=$.status.process.*
+http://<host>/get.json?f=$.status.outputs.*
+http://<host>/get.json?f=$.status.communications.*
 ```
 
 The responses are merged and used to create 64 sensors:
@@ -59,6 +66,12 @@ The responses are merged and used to create 64 sensors:
 - Ten temperature inputs
 - Fanlink, RF, Modbus, Bluetooth, and Ethernet status
 - Ten Fanlink device diagnostics
+
+Temperature entities are created during setup, but each one is enabled by
+default only when its first successful update reports a positive temperature.
+This keeps inactive inputs out of the default entity list while supporting UMR2
+installations that provide temperature data. Disabled entities can be enabled
+manually from the device's entity settings.
 
 Communication and connected-device entities are marked as diagnostic. Entity
 availability follows the coordinator's last successful update.
@@ -83,3 +96,7 @@ or service actions.
 
 This project is being cleaned up and reworked. The current implementation is
 small and intentionally documents only behavior present in the code.
+
+## License
+
+MIT License. See [`LICENSE`](LICENSE).

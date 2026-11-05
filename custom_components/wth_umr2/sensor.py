@@ -381,6 +381,15 @@ class WTHThermostatTemperatureSensor(WTHBaseSensor):
         super().__init__(coordinator, entry)
         self._index = index
         self._attr_name = f"Thermostat {index + 1} Temperature"
+        thermostats = coordinator.data.get("process", {}).get("thermostats", [])
+        temperature = (
+            thermostats[index].get("temperature")
+            if index < len(thermostats)
+            else None
+        )
+        self._attr_entity_registry_enabled_default = (
+            isinstance(temperature, (int, float)) and temperature > 0
+        )
 
     @property
     def unique_id(self) -> str:
@@ -525,6 +534,13 @@ class WTHTemperatureSensor(WTHBaseSensor):
         super().__init__(coordinator, entry)
         self._index = index
         self._attr_name = f"Temperature Sensor {index + 1}"
+        sensors = coordinator.data.get("inputs", {}).get("tSensors", [])
+        temperature = (
+            sensors[index].get("temperature") if index < len(sensors) else None
+        )
+        self._attr_entity_registry_enabled_default = (
+            isinstance(temperature, (int, float)) and temperature > 0
+        )
 
     @property
     def unique_id(self) -> str:
