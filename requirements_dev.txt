@@ -1,7 +1,7 @@
 # Development requirements for WTH UMR2 integration
 
 # Home Assistant (for testing)
-homeassistant>=2024.1.0
+homeassistant>=2025.1.0
 
 # Code quality
 ruff>=0.1.0
