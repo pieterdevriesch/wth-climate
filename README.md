@@ -56,7 +56,7 @@ http://<host>/get.json?f=$.status.outputs.*
 http://<host>/get.json?f=$.status.communications.*
 ```
 
-The responses are merged and used to create 64 sensors:
+The responses are merged and used to create 114 sensors:
 
 - Main state, operating mode, display, LED status, and heat/cool/PWM factors
 - Heater, cooler, and pump output percentages
@@ -64,8 +64,12 @@ The responses are merged and used to create 64 sensors:
 - Ten valve positions
 - Maximum, return, and condensate inputs
 - Ten temperature inputs
-- Fanlink, RF, Modbus, Bluetooth, and Ethernet status
-- Ten Fanlink device diagnostics
+- Power-stealing input status
+- Fanlink, RF, Modbus, Bluetooth, JSON, USB, and Ethernet status
+- Ten thermostat demand factors
+- Ten devices each for Fanlink, RF, Modbus, and Bluetooth diagnostics
+- PID tuning and output-factor diagnostics
+- Firmware build and controller API version diagnostics
 
 Temperature entities are created during setup, but each one is enabled by
 default only when its first successful update reports a positive temperature.
