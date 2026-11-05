@@ -1,13 +1,11 @@
 """Sensor platform for WTH UMR2 Regulator."""
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
-    SensorEntityDescription,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -23,9 +21,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WTHCoordinator
 from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -144,9 +139,10 @@ class WTHMainStateSensor(WTHBaseSensor):
             "kick": main.get("kick"),
             "button": main.get("button"),
             "night_lower_active": main.get("nightLowerActive"),
-            "master_umr": main.get("masterUMR"),
-            "slave_hc_factor": main.get("slaveHcFactor"),
-            "slave_pwm_factor": main.get("slavePwmFactor"),
+            "master_state": main.get("masterState"),
+            "global_heat_factor": main.get("globalHeatFactor"),
+            "global_cool_factor": main.get("globalCoolFactor"),
+            "global_pwm_factor": main.get("globalPwmFactor"),
         }
 
 
@@ -281,7 +277,7 @@ class WTHHeaterSensor(WTHBaseSensor):
         """Return additional attributes."""
         heater = self.coordinator.data.get("outputs", {}).get("heater", {})
         return {
-            "mode": heater.get("mode"),
+            "state": heater.get("state"),
         }
 
 
@@ -308,7 +304,7 @@ class WTHCoolerSensor(WTHBaseSensor):
         """Return additional attributes."""
         cooler = self.coordinator.data.get("outputs", {}).get("cooler", {})
         return {
-            "mode": cooler.get("mode"),
+            "state": cooler.get("state"),
         }
 
 
@@ -367,7 +363,6 @@ class WTHThermostatSensor(WTHBaseSensor):
         
         if self._index < len(process_thermostats):
             process_data = process_thermostats[self._index]
-            attrs["process_state"] = process_data.get("isOn")
             attrs["temperature"] = process_data.get("temperature")
             attrs["setpoint"] = process_data.get("setpoint")
         
@@ -684,7 +679,6 @@ class WTHEthernetStatusSensor(WTHBaseSensor):
         return {
             "message": ethernet.get("message"),
             "mac_address": ethernet.get("macAddress"),
-            "dhcp": ethernet.get("dhcp"),
             "ip_address": ethernet.get("ipAddress"),
             "subnet_mask": ethernet.get("subnetMask"),
             "gateway_address": ethernet.get("gatewayAddress"),
