@@ -37,8 +37,19 @@ same host from being configured more than once.
 
 ## Entities
 
-One device is created for each configured regulator. The integration polls
-`http://<host>/get.json?f=$.status.*` every 30 seconds and creates 64 sensors:
+One device is created for each configured regulator. The integration polls the six status sections separately every 30 seconds to
+stay within the controller's JSON response limit:
+
+```text
+http://<host>/get.json?f=$.status.version
+http://<host>/get.json?f=$.status.main
+http://<host>/get.json?f=$.status.inputs
+http://<host>/get.json?f=$.status.process
+http://<host>/get.json?f=$.status.outputs
+http://<host>/get.json?f=$.status.communications
+```
+
+The responses are merged and used to create 64 sensors:
 
 - Main state, operating mode, display, LED status, and heat/cool/PWM factors
 - Heater, cooler, and pump output percentages
@@ -54,27 +65,21 @@ availability follows the coordinator's last successful update.
 
 ## API expectations
 
-The regulator must return HTTP 200 from the endpoint above with a JSON object
-containing a `status` object. HTTP errors, timeouts, connection failures, and
-responses without `status` are reported as update failures. The integration
-does not provide authentication, TLS, writes, or service actions.
+The regulator must return HTTP 200 from each endpoint with a JSON object
+containing a `status` object and the requested section. HTTP errors, timeouts,
+connection failures, invalid JSON, and incomplete responses are reported as
+update failures. The integration does not provide authentication, TLS, writes,
+or service actions.
 
 ## Troubleshooting
 
 - Confirm the host is reachable from the machine running Home Assistant.
 - Check **Settings > System > Logs** for `wth_umr2` errors.
-- Confirm the endpoint returns JSON with a top-level `status` key:
-  `http://<host>/get.json?f=$.status.*`
+- Confirm each status endpoint returns JSON with a top-level `status` key.
 - If the device was previously configured, remove the existing config entry
   before attempting to add the same host again.
 
 ## Project status
 
 This project is being cleaned up and reworked. The current implementation is
-small and intentionally documents only behavior present in the code. Historical
-notes and superseded release documents are kept in [`legacy docs`](legacy%20docs)
-for reference and are not part of the active documentation.
-
-## License
-
-The license file is not currently present in this working tree.
+small and intentionally documents only behavior present in the code.

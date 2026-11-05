@@ -25,6 +25,14 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 SCAN_INTERVAL = timedelta(seconds=30)
 REQUEST_TIMEOUT = 10
+STATUS_SECTIONS = (
+    "version",
+    "main",
+    "inputs",
+    "process",
+    "outputs",
+    "communications",
+)
 
 type WTHConfigEntry = ConfigEntry[WTHCoordinator]
 
@@ -95,36 +103,75 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from API endpoint."""
-        url = f"http://{self.host}/get.json?f=$.status.*"
-        
+        """Fetch each status section separately and combine the responses."""
+        status: dict[str, Any] = {}
+
+        for section in STATUS_SECTIONS:
+            status[section] = await self._async_fetch_status_section(section)
+
+        return status
+
+    async def _async_fetch_status_section(self, section: str) -> dict[str, Any]:
+        """Fetch and validate one status section from the device."""
+        url = f"http://{self.host}/get.json?f=$.status.{section}"
+
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT):
                 async with self._session.get(url) as response:
                     if response.status != 200:
                         raise UpdateFailed(
-                            f"Error fetching data from {self.host}: HTTP {response.status}"
+                            f"Error fetching {section} from {self.host}: "
+                            f"HTTP {response.status}"
                         )
-                    
+
                     data = await response.json()
-                    
-                    if not isinstance(data, dict) or "status" not in data:
-                        raise UpdateFailed("Invalid response format: missing 'status' key")
-                    
-                    return data["status"]
-                    
+
+            if not isinstance(data, dict):
+                raise UpdateFailed(
+                    f"Invalid {section} response from {self.host}: expected object"
+                )
+
+            warning = data.get("warning")
+            if warning:
+                _LOGGER.warning(
+                    "WTH UMR2 at %s returned a warning for %s: %s",
+                    self.host,
+                    section,
+                    warning,
+                )
+
+            response_status = data.get("status")
+            if not isinstance(response_status, dict):
+                raise UpdateFailed(
+                    f"Invalid {section} response from {self.host}: "
+                    "missing status object"
+                )
+
+            section_data = response_status.get(section)
+            if not isinstance(section_data, dict):
+                raise UpdateFailed(
+                    f"Invalid {section} response from {self.host}: "
+                    f"missing status.{section} object"
+                )
+
+            return section_data
+
         except TimeoutError as err:
-            raise UpdateFailed(f"Timeout fetching data from {self.host}") from err
+            raise UpdateFailed(
+                f"Timeout fetching {section} from {self.host}"
+            ) from err
         except ClientError as err:
-            raise UpdateFailed(f"Error communicating with {self.host}: {err}") from err
-        except Exception as err:
-            raise UpdateFailed(f"Unexpected error fetching data: {err}") from err
+            raise UpdateFailed(
+                f"Error communicating with {self.host} while fetching {section}: {err}"
+            ) from err
+        except ValueError as err:
+            raise UpdateFailed(
+                f"Invalid JSON while fetching {section} from {self.host}"
+            ) from err
     
     async def async_shutdown(self) -> None:
         """Shutdown the coordinator."""
         await super().async_shutdown()
-
-
 
 
 
