@@ -5,7 +5,6 @@ import asyncio
 from typing import Any, Self
 
 import pytest
-import pytest_socket
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.wth_umr2 import STATUS_PATHS, WTHCoordinator
@@ -55,7 +54,6 @@ def make_coordinator(session: FakeSession) -> WTHCoordinator:
 
 def run_async(coroutine: Any) -> Any:
     """Run a coroutine without the Windows HA event-loop fixture."""
-    pytest_socket.enable_socket()
     return asyncio.run(coroutine)
 
 
