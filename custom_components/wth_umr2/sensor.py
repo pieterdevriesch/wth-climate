@@ -11,20 +11,20 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
-    UnitOfTemperature,
     EntityCategory,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import WTHCoordinator
 from .communication import (
     get_communication,
     get_communication_devices,
     get_process_communication,
 )
-from . import WTHCoordinator
 from .const import DOMAIN
 
 

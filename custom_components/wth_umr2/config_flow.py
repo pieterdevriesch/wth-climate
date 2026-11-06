@@ -5,15 +5,14 @@ import asyncio
 import logging
 from typing import Any
 
-from aiohttp import ClientError
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-
+from aiohttp import ClientError
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
 
 from .const import DOMAIN
 
@@ -62,7 +61,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     except ValueError as err:
         _LOGGER.error("Invalid response from WTH UMR2 at %s: %s", host, err)
         raise ValueError("Invalid response") from err
-    except Exception as err:
+    except Exception:
         _LOGGER.exception("Unexpected error connecting to WTH UMR2 at %s", host)
         raise
 
@@ -88,7 +87,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "cannot_connect"
             except ValueError:
                 errors["base"] = "invalid_response"
-            except Exception as err:
+            except Exception:
                 _LOGGER.exception("Unexpected exception in config flow")
                 errors["base"] = "unknown"
             else:

@@ -11,12 +11,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.helpers import device_registry as dr
 
 from .communication import COMMUNICATION_PATHS
 from .const import DOMAIN
@@ -78,12 +78,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-
-async def async_reload_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> None:
-    """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
 
 
 class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -180,7 +174,3 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(
                 f"Invalid JSON while fetching {path_text} from {self.host}"
             ) from err
-    
-    async def async_shutdown(self) -> None:
-        """Shutdown the coordinator."""
-        await super().async_shutdown()

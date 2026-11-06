@@ -4,6 +4,8 @@ This custom Home Assistant integration monitors a WTH UMR2 heating regulator ove
 the local network. It is not affiliated with WTH and currently provides read-only
 sensor entities; it does not send commands to the regulator.
 
+![WTH UMR2 controller unit](umr2.png)
+
 ## Attribution
 
 This project is based on the original
