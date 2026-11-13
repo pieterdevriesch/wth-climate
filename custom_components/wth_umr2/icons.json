@@ -1,5 +1,3 @@
 {
-  "integration": {
-    "default": "mdi:radiator"
-  }
+  "default": "mdi:radiator"
 }

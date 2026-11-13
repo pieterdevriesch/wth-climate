@@ -11,6 +11,5 @@
   "version": "1.3.0",
   "icon": "mdi:radiator",
   "issue_tracker": "https://github.com/pieterdevriesch/wth-climate/issues",
-  "homeassistant": "2025.1.0",
   "manifest_version": 4
 }
