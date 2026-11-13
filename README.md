@@ -4,6 +4,8 @@ This custom Home Assistant integration monitors a WTH UMR2 heating regulator ove
 the local network. It is not affiliated with WTH and currently provides read-only
 sensor entities; it does not send commands to the regulator.
 
+[![Open your Home Assistant instance and start setting up WTH UMR2](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wth_umr2)
+
 ![WTH UMR2 controller unit](umr2.png)
 
 ## Attribution
@@ -33,6 +35,12 @@ install **WTH UMR2 Regulator**. Restart Home Assistant afterwards.
 Copy [`custom_components/wth_umr2`](custom_components/wth_umr2) into the
 `custom_components` directory of the Home Assistant configuration directory,
 then restart Home Assistant.
+
+### Removal
+
+Remove the WTH UMR2 integration from **Settings > Devices & services**. Select
+the configured WTH UMR2 device, open the menu, and choose **Delete**. Restart
+Home Assistant if the integration was installed manually.
 
 ## Configuration
 

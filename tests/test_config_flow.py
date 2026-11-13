@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Self
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from aiohttp import ClientError
+from homeassistant.data_entry_flow import AbortFlow, FlowResult
 
 from custom_components.wth_umr2 import config_flow
 from custom_components.wth_umr2.const import DOMAIN
@@ -109,3 +111,91 @@ def test_config_flow_declares_domain_and_version() -> None:
     """The config flow must be registered for the integration domain."""
     assert config_flow.DOMAIN == DOMAIN
     assert config_flow.ConfigFlow.VERSION == 1
+
+
+def test_config_flow_shows_initial_form() -> None:
+    """The user step should initially show the host form without errors."""
+    result = run_async(config_flow.ConfigFlow().async_step_user())
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "user"
+    assert result["errors"] == {}
+
+
+def test_config_flow_creates_entry_after_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A valid device should produce a config entry."""
+    flow = config_flow.ConfigFlow()
+    flow.async_set_unique_id = AsyncMock()
+    flow._abort_if_unique_id_configured = Mock()
+    flow.async_create_entry = Mock(
+        return_value={"type": "create_entry", "title": "WTH UMR2 (device)"}
+    )
+    validate = AsyncMock(return_value={"title": "WTH UMR2 (device)"})
+    monkeypatch.setattr(config_flow, "validate_input", validate)
+
+    result: FlowResult = run_async(
+        flow.async_step_user({"host": "device"})
+    )
+
+    validate.assert_awaited_once_with(flow.hass, {"host": "device"})
+    flow.async_set_unique_id.assert_awaited_once_with("device")
+    flow._abort_if_unique_id_configured.assert_called_once_with()
+    flow.async_create_entry.assert_called_once_with(
+        title="WTH UMR2 (device)",
+        data={"host": "device"},
+    )
+    assert result["type"] == "create_entry"
+
+
+def test_config_flow_aborts_duplicate_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A host that is already configured should not create another entry."""
+    flow = config_flow.ConfigFlow()
+    flow.async_set_unique_id = AsyncMock()
+    flow._abort_if_unique_id_configured = Mock(
+        side_effect=AbortFlow("already_configured")
+    )
+    flow.async_create_entry = Mock()
+    monkeypatch.setattr(
+        config_flow,
+        "validate_input",
+        AsyncMock(return_value={"title": "WTH UMR2 (device)"}),
+    )
+
+    with pytest.raises(AbortFlow, match="already_configured"):
+        run_async(flow.async_step_user({"host": "device"}))
+
+    flow.async_set_unique_id.assert_awaited_once_with("device")
+    flow._abort_if_unique_id_configured.assert_called_once_with()
+    flow.async_create_entry.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("exception", "error"),
+    [
+        (ConnectionError("Timeout"), "timeout"),
+        (ConnectionError("connection refused"), "cannot_connect"),
+        (ValueError("Invalid response"), "invalid_response"),
+        (RuntimeError("unexpected"), "unknown"),
+    ],
+)
+def test_config_flow_recovers_from_validation_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    exception: Exception,
+    error: str,
+) -> None:
+    """Validation errors should return the form with a translated error key."""
+    flow = config_flow.ConfigFlow()
+    validate = AsyncMock(side_effect=exception)
+    monkeypatch.setattr(config_flow, "validate_input", validate)
+
+    result: FlowResult = run_async(
+        flow.async_step_user({"host": "device"})
+    )
+
+    assert result["type"] == "form"
+    assert result["step_id"] == "user"
+    assert result["errors"] == {"base": error}

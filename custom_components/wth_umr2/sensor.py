@@ -15,17 +15,15 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import WTHCoordinator
 from .communication import (
     get_communication,
     get_communication_devices,
     get_process_communication,
 )
-from .const import DOMAIN
+from .coordinator import WTHCoordinator
+from .entity import WTHBaseEntity as WTHBaseSensor
 
 
 def _get_indexed_item(items: Any, index: int) -> dict[str, Any] | None:
@@ -139,33 +137,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class WTHBaseSensor(CoordinatorEntity[WTHCoordinator], SensorEntity):
-    """Base class for WTH UMR2 sensors."""
-
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator: WTHCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._entry = entry
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name="WTH UMR2 Regulator",
-            manufacturer="WTH",
-            model="UMR2",
-            sw_version=coordinator.data.get("version", {}).get("fw", "Unknown"),
-            hw_version=coordinator.data.get("version", {}).get("hw", "Unknown"),
-            configuration_url=f"http://{coordinator.host}",
-        )
-
-    @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.data is not None
-
-
-
-class WTHMainStateSensor(WTHBaseSensor):
+class WTHMainStateSensor(WTHBaseSensor, SensorEntity):
     """Sensor for main state."""
 
     _attr_name = "Main State"
