@@ -11,8 +11,10 @@ from custom_components.wth_umr2.const import DOMAIN
 from custom_components.wth_umr2.sensor import (
     WTHCommunicationDeviceSensor,
     WTHMainStateSensor,
+    WTHModeSensor,
     WTHRFStatusSensor,
     WTHTemperatureSensor,
+    WTHThermostatSensor,
     WTHThermostatTemperatureSensor,
     async_setup_entry,
 )
@@ -69,6 +71,22 @@ def test_main_sensor_reads_state_and_attributes() -> None:
         "global_cool_factor": None,
         "global_pwm_factor": None,
     }
+
+
+def test_shared_sensor_base_exposes_sensor_values() -> None:
+    """Sensors sharing the base class should expose their native values."""
+    coordinator = make_coordinator(
+        {
+            "main": {"mode": "heating"},
+            "inputs": {
+                "thermostats": [{"index": 0, "isOn": False}],
+            },
+        }
+    )
+    entry = make_entry()
+
+    assert WTHModeSensor(coordinator, entry).native_value == "heating"
+    assert WTHThermostatSensor(coordinator, entry, 0).native_value == "off"
 
 
 def test_indexed_temperature_sensors_use_controller_indexes() -> None:

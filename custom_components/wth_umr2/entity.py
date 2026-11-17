@@ -1,6 +1,7 @@
 """Base entity for the WTH UMR2 integration."""
 from __future__ import annotations
 
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -9,7 +10,7 @@ from .const import DOMAIN
 from .coordinator import WTHCoordinator
 
 
-class WTHBaseEntity(CoordinatorEntity[WTHCoordinator]):
+class WTHBaseEntity(CoordinatorEntity[WTHCoordinator], SensorEntity):
     """Base entity shared by WTH UMR2 platforms."""
 
     _attr_has_entity_name = True
