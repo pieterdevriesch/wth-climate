@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from aiohttp import ClientError
 from homeassistant.data_entry_flow import AbortFlow, FlowResult
+from voluptuous import UNDEFINED
 
 from custom_components.wth_umr2 import config_flow
 from custom_components.wth_umr2.const import DOMAIN
@@ -120,6 +121,10 @@ def test_config_flow_shows_initial_form() -> None:
     assert result["type"] == "form"
     assert result["step_id"] == "user"
     assert result["errors"] == {}
+    host_key = next(
+        key for key in result["data_schema"].schema if key == config_flow.CONF_HOST
+    )
+    assert host_key.default is UNDEFINED
 
 
 def test_config_flow_creates_entry_after_validation(

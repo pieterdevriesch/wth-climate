@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_HOST, default="YOUR.WTH.IP.ADDRESS"): cv.string,
+        vol.Required(CONF_HOST): cv.string,
     }
 )
 
