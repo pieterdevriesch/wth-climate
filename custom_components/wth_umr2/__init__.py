@@ -3,25 +3,67 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+import voluptuous as vol
+from homeassistant.const import ATTR_DEVICE_ID, Platform
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 
 from .config_flow import host_url_value
 from .const import DOMAIN
 from .coordinator import STATUS_PATHS as STATUS_PATHS
-from .coordinator import WTHConfigEntry, WTHCoordinator
+from .coordinator import VALVE_MODES, WTHConfigEntry, WTHCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+SERVICE_SET_VALVE_MODE = "set_valve_mode"
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the WTH UMR2 component."""
     # HA 2026.3+ handles brand logos automatically via /api/brands/integration/
     # No need for custom logo serving.
+    async def handle_set_valve_mode(call: ServiceCall) -> None:
+        """Set a valve mode for the selected WTH UMR2 device."""
+        device_id = call.data.get(ATTR_DEVICE_ID)
+        if not device_id:
+            raise HomeAssistantError("A WTH UMR2 device must be selected")
+
+        device = dr.async_get(hass).async_get(device_id)
+        if device is None:
+            raise HomeAssistantError("WTH UMR2 device was not found")
+
+        entries = [
+            hass.config_entries.async_get_entry(entry_id)
+            for entry_id in device.config_entries
+        ]
+        entries = [
+            entry for entry in entries if entry is not None and entry.domain == DOMAIN
+        ]
+        if len(entries) != 1:
+            raise HomeAssistantError("WTH UMR2 device configuration is ambiguous")
+
+        await entries[0].runtime_data.async_set_valve_mode(
+            call.data["valve_index"],
+            call.data["mode"],
+        )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_VALVE_MODE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_VALVE_MODE,
+            handle_set_valve_mode,
+            schema=vol.Schema(
+                {
+                    vol.Required("valve_index"): vol.All(
+                        vol.Coerce(int), vol.Range(min=0, max=9)
+                    ),
+                    vol.Required("mode"): vol.In(sorted(VALVE_MODES)),
+                }
+            ),
+        )
+
     return True
 
 

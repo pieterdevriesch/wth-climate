@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Self
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -37,10 +38,20 @@ class FakeSession:
         """Initialize the session."""
         self.response = response
         self.url: str | None = None
+        self.post_url: str | None = None
+        self.post_data: str | None = None
 
     def get(self, url: str) -> FakeResponse:
         """Return the configured response."""
         self.url = url
+        return self.response
+
+    def post(
+        self, url: str, data: str, headers: dict[str, str]
+    ) -> FakeResponse:
+        """Return the configured write response."""
+        self.post_url = url
+        self.post_data = data
         return self.response
 
 
@@ -143,3 +154,60 @@ def test_fetch_status_path_rejects_missing_section() -> None:
 
     with pytest.raises(UpdateFailed, match="missing or empty"):
         run_async(coordinator._async_fetch_status_path(("communications", "rf")))
+
+
+def test_set_valve_mode_posts_minimal_payload_and_verifies_readback() -> None:
+    """Valve writes should be confirmed through the settings endpoint."""
+    session = FakeSession(
+        FakeResponse(
+            {
+                "settings": {
+                    "outputs": {
+                        "valves": [{"index": 4, "mode": "auto"}],
+                    }
+                }
+            }
+        )
+    )
+    coordinator = make_coordinator(session)
+    coordinator.async_request_refresh = AsyncMock()
+
+    run_async(coordinator.async_set_valve_mode(4, "auto"))
+
+    assert session.post_url == "http://192.0.2.10/set_config.cgi"
+    assert session.post_data == (
+        '{"settings":{"outputs":{"valves":[{"index":4,"mode":"auto"}]}}}'
+    )
+    assert session.url == "http://192.0.2.10/get.json?f=$.settings.*"
+    coordinator.async_request_refresh.assert_awaited_once_with()
+
+
+@pytest.mark.parametrize(
+    ("index", "mode"),
+    [(-1, "auto"), (10, "auto"), (0, "invalid")],
+)
+def test_set_valve_mode_rejects_invalid_values(index: int, mode: str) -> None:
+    """Invalid valve indexes and modes should never reach the device."""
+    coordinator = make_coordinator(FakeSession(FakeResponse({})))
+
+    with pytest.raises(ValueError):
+        run_async(coordinator.async_set_valve_mode(index, mode))
+
+
+def test_set_valve_mode_rejects_unconfirmed_readback() -> None:
+    """A successful POST must not be reported as success without confirmation."""
+    session = FakeSession(
+        FakeResponse(
+            {
+                "settings": {
+                    "outputs": {
+                        "valves": [{"index": 4, "mode": "off"}],
+                    }
+                }
+            }
+        )
+    )
+    coordinator = make_coordinator(session)
+
+    with pytest.raises(UpdateFailed, match="did not confirm"):
+        run_async(coordinator.async_set_valve_mode(4, "auto"))

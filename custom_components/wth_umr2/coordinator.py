@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import timedelta
 from typing import Any
@@ -23,6 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(seconds=30)
 REQUEST_TIMEOUT = 10
+VALVE_MODES = frozenset({"auto", "off", "primHeat"})
 STATUS_PATHS: tuple[tuple[str, ...], ...] = (
     ("version",),
     ("main",),
@@ -143,6 +145,93 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(
                 f"Invalid JSON while fetching {path_text} from {self.host}"
             ) from err
+
+    async def async_set_valve_mode(self, index: int, mode: str) -> None:
+        """Set a valve mode and verify it through the settings endpoint."""
+        if not 0 <= index < 10:
+            raise ValueError(f"Invalid valve index: {index}")
+        if mode not in VALVE_MODES:
+            raise ValueError(f"Invalid valve mode: {mode}")
+
+        url = f"http://{host_url_value(self.host)}/set_config.cgi"
+        payload = {
+            "settings": {
+                "outputs": {
+                    "valves": [{"index": index, "mode": mode}],
+                }
+            }
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "ISAJAX": "yes",
+            "Origin": f"http://{host_url_value(self.host)}",
+            "Referer": f"http://{host_url_value(self.host)}/",
+        }
+
+        try:
+            async with asyncio.timeout(REQUEST_TIMEOUT):
+                async with self._session.post(
+                    url,
+                    data=json.dumps(payload, separators=(",", ":")),
+                    headers=headers,
+                ) as response:
+                    if response.status < 200 or response.status >= 300:
+                        raise UpdateFailed(
+                            f"Error setting valve {index} on {self.host}: "
+                            f"HTTP {response.status}"
+                        )
+
+                async with self._session.get(
+                    f"http://{host_url_value(self.host)}/get.json?f=$.settings.*"
+                ) as response:
+                    if response.status != 200:
+                        raise UpdateFailed(
+                            f"Error reading valve {index} settings from {self.host}: "
+                            f"HTTP {response.status}"
+                        )
+                    settings_response = await response.json()
+
+            if not isinstance(settings_response, dict):
+                raise UpdateFailed(
+                    f"Invalid settings response from {self.host}: expected object"
+                )
+
+            settings = settings_response.get("settings")
+            outputs = settings.get("outputs") if isinstance(settings, dict) else None
+            valves = outputs.get("valves") if isinstance(outputs, dict) else None
+            if not isinstance(valves, list):
+                raise UpdateFailed(
+                    f"Invalid settings response from {self.host}: missing valves"
+                )
+
+            updated_valve = next(
+                (
+                    valve
+                    for valve in valves
+                    if isinstance(valve, dict) and valve.get("index") == index
+                ),
+                None,
+            )
+            if not isinstance(updated_valve, dict) or updated_valve.get("mode") != mode:
+                raise UpdateFailed(
+                    f"Valve {index} on {self.host} did not confirm mode {mode}"
+                )
+
+        except TimeoutError as err:
+            raise UpdateFailed(
+                f"Timeout setting valve {index} on {self.host}"
+            ) from err
+        except ClientError as err:
+            raise UpdateFailed(
+                f"Error communicating with {self.host} while setting valve "
+                f"{index}: {err}"
+            ) from err
+        except ValueError as err:
+            raise UpdateFailed(
+                f"Invalid settings response from {self.host}"
+            ) from err
+
+        await self.async_request_refresh()
 
 
 type WTHConfigEntry = ConfigEntry[WTHCoordinator]

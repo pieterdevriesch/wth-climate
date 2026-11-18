@@ -1,8 +1,8 @@
 # WTH UMR2 Regulator for Home Assistant
 
 This custom Home Assistant integration monitors a WTH UMR2 heating regulator over
-the local network. It is not affiliated with WTH and currently provides read-only
-sensor entities; it does not send commands to the regulator.
+the local network. It is not affiliated with WTH. In addition to sensor entities,
+it provides an explicit service for changing valve modes.
 
 [![Open your Home Assistant instance and start setting up WTH UMR2](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=wth_umr2)
 
@@ -105,8 +105,21 @@ follows the coordinator's last successful update.
 The regulator must return HTTP 200 from each endpoint with a JSON object
 containing a `status` object and the requested section. HTTP errors, timeouts,
 connection failures, invalid JSON, and incomplete responses are reported as
-update failures. The integration does not provide authentication, TLS, writes,
-or service actions.
+update failures. The integration does not provide authentication or TLS.
+
+## Valve control
+
+The `wth_umr2.set_valve_mode` service changes one valve mode on the controller.
+Select the WTH UMR2 device as the service target, then provide:
+
+- `valve_index`: a valve index from 0 through 9
+- `mode`: `auto`, `off`, or `primHeat`
+
+The integration verifies the change by reading the controller settings back. An
+empty response body from the controller's write endpoint is valid when the HTTP
+request succeeds and the read-back confirms the requested mode. Valve changes
+directly affect heating outputs, so use this service only when an intentional
+physical change is wanted.
 
 ## Troubleshooting
 
