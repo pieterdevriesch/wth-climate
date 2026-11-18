@@ -30,6 +30,7 @@ STATUS_PATHS: tuple[tuple[str, ...], ...] = (
     ("outputs",),
     *COMMUNICATION_PATHS,
 )
+OPTIONAL_STATUS_PATHS = frozenset(COMMUNICATION_PATHS)
 
 
 class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -54,7 +55,19 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         status: dict[str, Any] = {}
 
         for path in STATUS_PATHS:
-            section_data = await self._async_fetch_status_path(path)
+            try:
+                section_data = await self._async_fetch_status_path(path)
+            except UpdateFailed as err:
+                if path not in OPTIONAL_STATUS_PATHS:
+                    raise
+
+                _LOGGER.warning(
+                    "Optional WTH UMR2 section %s is unavailable: %s",
+                    ".".join(path),
+                    err,
+                )
+                section_data = {}
+
             target = status
             for key in path[:-1]:
                 target = target.setdefault(key, {})

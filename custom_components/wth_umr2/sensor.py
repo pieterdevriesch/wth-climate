@@ -921,6 +921,13 @@ class WTHFanlinkDeviceSensor(WTHBaseSensor):
         self._attr_name = f"Fanlink Device {index + 1}"
         self._attr_icon = "mdi:devices"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        device = _get_indexed_item(
+            get_communication_devices(coordinator.data, self._communication),
+            index,
+        )
+        self._attr_entity_registry_enabled_default = bool(
+            device and device.get("type")
+        )
 
     @property
     def unique_id(self) -> str:
@@ -937,8 +944,8 @@ class WTHFanlinkDeviceSensor(WTHBaseSensor):
         if device is None:
             return None
 
-        device_type = device.get("type", "")
-        return device_type if device_type else "Not configured"
+        device_type = device.get("type")
+        return device_type if device_type else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -975,6 +982,13 @@ class WTHCommunicationDeviceSensor(WTHBaseSensor):
         self._index = index
         self._attr_name = f"{communication.title()} Device {index + 1}"
         self._attr_icon = "mdi:devices"
+        device = _get_indexed_item(
+            get_communication_devices(coordinator.data, self._communication),
+            index,
+        )
+        self._attr_entity_registry_enabled_default = bool(
+            device and device.get("type")
+        )
 
     @property
     def unique_id(self) -> str:
@@ -991,8 +1005,8 @@ class WTHCommunicationDeviceSensor(WTHBaseSensor):
         if device is None:
             return None
 
-        device_type = device.get("type", "")
-        return device_type if device_type else "Not configured"
+        device_type = device.get("type")
+        return device_type if device_type else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

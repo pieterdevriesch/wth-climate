@@ -10,6 +10,7 @@ from custom_components.wth_umr2 import WTHCoordinator
 from custom_components.wth_umr2.const import DOMAIN
 from custom_components.wth_umr2.sensor import (
     WTHCommunicationDeviceSensor,
+    WTHFanlinkDeviceSensor,
     WTHMainStateSensor,
     WTHModeSensor,
     WTHRFStatusSensor,
@@ -155,6 +156,28 @@ def test_diagnostic_sensors_expose_status_and_device_type() -> None:
     assert status.native_value == "Connected"
     assert device.native_value == "Thermostat"
     assert device.unique_id == "test-entry_bluetooth_device_3"
+    assert device.entity_registry_enabled_default is True
+
+
+def test_unconfigured_communication_devices_are_disabled() -> None:
+    """Unconfigured communication-device slots should not be exposed by default."""
+    coordinator = make_coordinator(
+        {
+            "communications": {
+                "fanlink": {"devices": [{"index": 0, "type": ""}]},
+                "rf": {"devices": []},
+            }
+        }
+    )
+    entry = make_entry()
+
+    fanlink = WTHFanlinkDeviceSensor(coordinator, entry, 0)
+    rf = WTHCommunicationDeviceSensor(coordinator, entry, "rf", 0)
+
+    assert fanlink.native_value is None
+    assert fanlink.entity_registry_enabled_default is False
+    assert rf.native_value is None
+    assert rf.entity_registry_enabled_default is False
 
 
 def test_sensor_setup_creates_documented_entity_count() -> None:

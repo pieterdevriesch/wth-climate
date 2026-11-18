@@ -94,8 +94,10 @@ This keeps inactive inputs out of the default entity list while supporting UMR2
 installations that provide temperature data. Disabled entities can be enabled
 manually from the device's entity settings.
 
-Communication and connected-device entities are marked as diagnostic. Entity
-availability follows the coordinator's last successful update.
+Communication and connected-device entities are marked as diagnostic. Device
+slot entities for Fanlink, RF, Modbus, and Bluetooth are enabled by default
+only when the controller reports a configured device type. Entity availability
+follows the coordinator's last successful update.
 
 ## API expectations
 

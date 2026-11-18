@@ -76,6 +76,42 @@ def test_update_data_splits_and_merges_status_paths() -> None:
     assert result["communications"]["usb"]["state"] == "communications.usb"
 
 
+def test_update_data_keeps_optional_communication_sections_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing communication sections should not fail the whole update."""
+    coordinator = make_coordinator(FakeSession(FakeResponse({})))
+
+    async def fetch(path: tuple[str, ...]) -> dict[str, Any]:
+        if path == ("communications", "rf"):
+            raise UpdateFailed("missing communication section")
+        return {"state": ".".join(path)}
+
+    monkeypatch.setattr(coordinator, "_async_fetch_status_path", fetch)
+
+    result = run_async(coordinator._async_update_data())
+
+    assert result["main"]["state"] == "main"
+    assert result["communications"]["rf"] == {}
+
+
+def test_update_data_still_fails_for_missing_required_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing core sections should still fail the coordinator update."""
+    coordinator = make_coordinator(FakeSession(FakeResponse({})))
+
+    async def fetch(path: tuple[str, ...]) -> dict[str, Any]:
+        if path == ("main",):
+            raise UpdateFailed("missing main section")
+        return {"state": ".".join(path)}
+
+    monkeypatch.setattr(coordinator, "_async_fetch_status_path", fetch)
+
+    with pytest.raises(UpdateFailed, match="missing main section"):
+        run_async(coordinator._async_update_data())
+
+
 def test_fetch_status_path_returns_requested_section() -> None:
     """A valid response should return the requested nested section."""
     response = FakeResponse(
