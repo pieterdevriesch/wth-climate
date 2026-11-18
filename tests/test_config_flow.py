@@ -74,6 +74,30 @@ def test_validate_input_accepts_valid_device(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.parametrize(
+    ("raw_host", "normalized_host"),
+    [
+        ("  DEVICE.Local. ", "device.local"),
+        ("[2001:db8::10]", "2001:db8::10"),
+    ],
+)
+def test_normalize_host_canonicalizes_valid_hosts(
+    raw_host: str, normalized_host: str
+) -> None:
+    """Valid IP addresses and hostnames should have stable representations."""
+    assert config_flow.normalize_host(raw_host) == normalized_host
+
+
+@pytest.mark.parametrize(
+    "raw_host",
+    ["", "http://device.local", "device.local/path", "bad host"],
+)
+def test_normalize_host_rejects_url_and_invalid_values(raw_host: str) -> None:
+    """Host input should not accept URLs, paths, or malformed names."""
+    with pytest.raises(config_flow.InvalidHostError):
+        config_flow.normalize_host(raw_host)
+
+
+@pytest.mark.parametrize(
     "payload",
     [
         {},

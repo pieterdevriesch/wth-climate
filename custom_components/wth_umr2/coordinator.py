@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .communication import COMMUNICATION_PATHS
+from .config_flow import host_url_value
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,7 +79,10 @@ class WTHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_fetch_status_path(self, path: tuple[str, ...]) -> dict[str, Any]:
         """Fetch and validate one status path from the device."""
         path_text = ".".join(path)
-        url = f"http://{self.host}/get.json?f=$.status.{path_text}.*"
+        url = (
+            f"http://{host_url_value(self.host)}/get.json"
+            f"?f=$.status.{path_text}.*"
+        )
 
         try:
             async with asyncio.timeout(REQUEST_TIMEOUT):

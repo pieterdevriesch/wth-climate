@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
+import re
 from typing import Any
 
 import homeassistant.helpers.config_validation as cv
@@ -17,6 +19,43 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+_HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+class InvalidHostError(ValueError):
+    """Raised when a configured host is not a valid IP or hostname."""
+
+
+def normalize_host(value: str) -> str:
+    """Normalize and validate an IP address or hostname."""
+    host = value.strip()
+    if host.startswith("[") and host.endswith("]"):
+        host = host[1:-1]
+
+    try:
+        return str(ipaddress.ip_address(host))
+    except ValueError:
+        pass
+
+    host = host.rstrip(".").casefold()
+    if (
+        not host
+        or len(host) > 253
+        or any(character.isspace() for character in host)
+        or any(character in host for character in "/?#@:")
+        or any(
+            not _HOST_LABEL.fullmatch(label) or len(label) > 63
+            for label in host.split(".")
+        )
+    ):
+        raise InvalidHostError("Invalid host")
+
+    return host
+
+
+def host_url_value(host: str) -> str:
+    """Return a normalized host formatted for an HTTP URL."""
+    return f"[{host}]" if ":" in host else host
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -27,8 +66,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
-    host = data[CONF_HOST]
-    url = f"http://{host}/get.json?f=$.status.version.*"
+    host = normalize_host(data[CONF_HOST])
+    url = f"http://{host_url_value(host)}/get.json?f=$.status.version.*"
     
     session = async_get_clientsession(hass)
     
@@ -79,7 +118,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, user_input)
+                normalized_host = normalize_host(user_input[CONF_HOST])
+                normalized_input = {**user_input, CONF_HOST: normalized_host}
+                info = await validate_input(self.hass, normalized_input)
+            except InvalidHostError:
+                errors["base"] = "invalid_host"
             except ConnectionError as err:
                 if "Timeout" in str(err):
                     errors["base"] = "timeout"
@@ -91,12 +134,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception in config flow")
                 errors["base"] = "unknown"
             else:
-                await self.async_set_unique_id(user_input[CONF_HOST])
+                await self.async_set_unique_id(normalized_host)
                 self._abort_if_unique_id_configured()
                 
                 return self.async_create_entry(
                     title=info["title"],
-                    data=user_input,
+                    data=normalized_input,
                 )
 
         return self.async_show_form(

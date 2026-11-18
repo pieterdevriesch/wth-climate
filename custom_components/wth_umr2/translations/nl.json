@@ -16,6 +16,7 @@
       "cannot_connect": "Kan geen verbinding maken met het apparaat. Controleer het IP-adres en zorg ervoor dat het apparaat bereikbaar is op uw netwerk.",
       "timeout": "Verbinding met het apparaat is verlopen. Controleer het IP-adres en zorg ervoor dat het apparaat is ingeschakeld en verbonden met uw netwerk.",
       "invalid_response": "Het apparaat gaf een ongeldige reactie. Controleer of dit een WTH UMR2 regulator is.",
+      "invalid_host": "Voer een geldig IP-adres of hostnaam in zonder http:// of een pad.",
       "unknown": "Er is een onverwachte fout opgetreden. Probeer het opnieuw."
     },
     "abort": {

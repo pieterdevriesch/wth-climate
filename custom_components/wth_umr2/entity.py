@@ -7,6 +7,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .config_flow import host_url_value
 from .coordinator import WTHCoordinator
 
 
@@ -26,7 +27,7 @@ class WTHBaseEntity(CoordinatorEntity[WTHCoordinator], SensorEntity):
             model="UMR2",
             sw_version=coordinator.data.get("version", {}).get("fw", "Unknown"),
             hw_version=coordinator.data.get("version", {}).get("hw", "Unknown"),
-            configuration_url=f"http://{coordinator.host}",
+            configuration_url=f"http://{host_url_value(coordinator.host)}",
         )
 
     @property

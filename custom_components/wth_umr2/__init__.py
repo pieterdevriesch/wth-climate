@@ -9,6 +9,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 
+from .config_flow import host_url_value
 from .const import DOMAIN
 from .coordinator import STATUS_PATHS as STATUS_PATHS
 from .coordinator import WTHConfigEntry, WTHCoordinator
@@ -47,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> bool:
         name="WTH UMR2 Regulator",
         sw_version=coordinator.data.get("version", {}).get("fw", "Unknown"),
         hw_version=coordinator.data.get("version", {}).get("hw", "Unknown"),
-        configuration_url=f"http://{coordinator.host}",
+        configuration_url=f"http://{host_url_value(coordinator.host)}",
     )
 
     return True

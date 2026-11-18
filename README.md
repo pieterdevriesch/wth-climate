@@ -46,7 +46,7 @@ Home Assistant if the integration was installed manually.
 
 1. Open **Settings > Devices & services**.
 2. Select **Add integration** and search for **WTH UMR2 Regulator**.
-3. Enter the regulator's IP address or hostname.
+3. Enter the regulator's IP address or hostname, without `http://` or a path.
 4. Submit the form.
 
 The config flow validates the device before creating the entry and prevents the
