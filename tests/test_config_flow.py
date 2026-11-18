@@ -205,9 +205,9 @@ def test_config_flow_aborts_duplicate_host(
 @pytest.mark.parametrize(
     ("exception", "error"),
     [
-        (ConnectionError("Timeout"), "timeout"),
+        (config_flow.ConnectionTimeoutError("Timeout"), "timeout"),
         (ConnectionError("connection refused"), "cannot_connect"),
-        (ValueError("Invalid response"), "invalid_response"),
+        (config_flow.InvalidResponseError("Invalid response"), "invalid_response"),
         (RuntimeError("unexpected"), "unknown"),
     ],
 )

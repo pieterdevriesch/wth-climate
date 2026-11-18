@@ -26,6 +26,14 @@ class InvalidHostError(ValueError):
     """Raised when a configured host is not a valid IP or hostname."""
 
 
+class InvalidResponseError(ValueError):
+    """Raised when the device response is not a supported WTH response."""
+
+
+class ConnectionTimeoutError(ConnectionError):
+    """Raised when the device does not respond before the timeout."""
+
+
 def normalize_host(value: str) -> str:
     """Normalize and validate an IP address or hostname."""
     host = value.strip()
@@ -85,7 +93,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                     or not isinstance(data["status"].get("version"), dict)
                     or not data["status"]["version"]
                 ):
-                    raise ValueError("Invalid response format")
+                    raise InvalidResponseError("Invalid response format")
                 
                 return {
                     "title": f"WTH UMR2 ({host})",
@@ -93,13 +101,16 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                 
     except TimeoutError as err:
         _LOGGER.error("Timeout connecting to WTH UMR2 at %s", host)
-        raise ConnectionError("Timeout") from err
+        raise ConnectionTimeoutError("Timeout") from err
     except ClientError as err:
         _LOGGER.error("Error connecting to WTH UMR2 at %s: %s", host, err)
         raise ConnectionError(str(err)) from err
-    except ValueError as err:
+    except InvalidResponseError as err:
         _LOGGER.error("Invalid response from WTH UMR2 at %s: %s", host, err)
-        raise ValueError("Invalid response") from err
+        raise InvalidResponseError("Invalid response") from err
+    except ValueError as err:
+        _LOGGER.error("Invalid JSON from WTH UMR2 at %s: %s", host, err)
+        raise InvalidResponseError("Invalid response") from err
     except Exception:
         _LOGGER.exception("Unexpected error connecting to WTH UMR2 at %s", host)
         raise
@@ -123,12 +134,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, normalized_input)
             except InvalidHostError:
                 errors["base"] = "invalid_host"
-            except ConnectionError as err:
-                if "Timeout" in str(err):
-                    errors["base"] = "timeout"
-                else:
-                    errors["base"] = "cannot_connect"
-            except ValueError:
+            except ConnectionTimeoutError:
+                errors["base"] = "timeout"
+            except ConnectionError:
+                errors["base"] = "cannot_connect"
+            except InvalidResponseError:
                 errors["base"] = "invalid_response"
             except Exception:
                 _LOGGER.exception("Unexpected exception in config flow")
