@@ -73,9 +73,10 @@ http://<host>/get.json?f=$.status.communications.json.*
 http://<host>/get.json?f=$.status.communications.usb.*
 ```
 
-The responses are merged and used to create 114 sensors:
+The responses are merged and used to create 115 sensors:
 
-- Main state, operating mode, display, LED status, and heat/cool/PWM factors
+- Connection status, main state, operating mode, display, LED status, and
+  heat/cool/PWM factors
 - Heater, cooler, and pump output percentages
 - Eight thermostat states and eight thermostat temperatures
 - Ten valve positions

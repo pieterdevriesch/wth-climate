@@ -12,6 +12,7 @@ from custom_components.wth_umr2 import WTHCoordinator
 from custom_components.wth_umr2.const import DOMAIN
 from custom_components.wth_umr2.sensor import (
     WTHCommunicationDeviceSensor,
+    WTHConnectionStatusSensor,
     WTHFanlinkDeviceSensor,
     WTHHeaterSensor,
     WTHMainStateSensor,
@@ -128,6 +129,30 @@ def test_shared_sensor_base_exposes_sensor_values() -> None:
 
     assert WTHModeSensor(coordinator, entry).native_value == "heating"
     assert WTHThermostatSensor(coordinator, entry, 0).native_value == "off"
+
+
+def test_connection_status_sensor_reports_update_health() -> None:
+    """The diagnostic connection sensor should remain available on failures."""
+    coordinator = make_coordinator({})
+    entry = make_entry()
+    sensor = WTHConnectionStatusSensor(coordinator, entry)
+
+    assert sensor.native_value == "Connected"
+    assert sensor.available is True
+    assert sensor.extra_state_attributes == {
+        "last_update_success": True,
+        "last_error": None,
+    }
+
+    coordinator.last_update_success = False
+    coordinator.last_exception = RuntimeError("device unavailable")
+
+    assert sensor.native_value == "Unavailable"
+    assert sensor.available is True
+    assert sensor.extra_state_attributes == {
+        "last_update_success": False,
+        "last_error": "device unavailable",
+    }
 
 
 def test_indexed_temperature_sensors_use_controller_indexes() -> None:
@@ -254,5 +279,5 @@ def test_sensor_setup_creates_documented_entity_count() -> None:
 
     asyncio.run(async_setup_entry(object(), entry, add_entities))  # type: ignore[arg-type]
 
-    assert len(entities) == 114
-    assert len({entity.unique_id for entity in entities}) == 114
+    assert len(entities) == 115
+    assert len({entity.unique_id for entity in entities}) == 115

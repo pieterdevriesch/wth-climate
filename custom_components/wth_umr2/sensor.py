@@ -51,6 +51,7 @@ async def async_setup_entry(
     # Main status sensors
     entities.extend([
         WTHMainStateSensor(coordinator, entry),
+        WTHConnectionStatusSensor(coordinator, entry),
         WTHModeSensor(coordinator, entry),
         WTHDisplaySensor(coordinator, entry),
         WTHLEDSensor(coordinator, entry),
@@ -166,6 +167,38 @@ class WTHMainStateSensor(WTHBaseSensor, SensorEntity):
             "global_heat_factor": main.get("globalHeatFactor"),
             "global_cool_factor": main.get("globalCoolFactor"),
             "global_pwm_factor": main.get("globalPwmFactor"),
+        }
+
+
+class WTHConnectionStatusSensor(WTHBaseSensor):
+    """Sensor for the coordinator connection status."""
+
+    _attr_name = "Connection Status"
+    _attr_icon = "mdi:connection"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID."""
+        return f"{self._entry.entry_id}_connection_status"
+
+    @property
+    def available(self) -> bool:
+        """Keep the health sensor available when polling fails."""
+        return True
+
+    @property
+    def native_value(self) -> str:
+        """Return the current coordinator health."""
+        return "Connected" if self.coordinator.last_update_success else "Unavailable"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return coordinator health details."""
+        last_exception = getattr(self.coordinator, "last_exception", None)
+        return {
+            "last_update_success": self.coordinator.last_update_success,
+            "last_error": str(last_exception) if last_exception else None,
         }
 
 
