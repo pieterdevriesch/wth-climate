@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -47,6 +49,12 @@ def make_entry() -> ConfigEntry:
     )
 
 
+def load_status_fixture() -> dict[str, Any]:
+    """Load the redacted response shape captured from a real controller."""
+    fixture_path = Path(__file__).parent / "fixtures" / "wth_umr2_status.json"
+    return json.loads(fixture_path.read_text(encoding="utf-8"))["status"]
+
+
 def test_main_sensor_reads_state_and_attributes() -> None:
     """The main sensor should expose state and relevant status attributes."""
     coordinator = make_coordinator(
@@ -73,6 +81,17 @@ def test_main_sensor_reads_state_and_attributes() -> None:
         "global_cool_factor": None,
         "global_pwm_factor": None,
     }
+
+
+def test_sensors_read_redacted_controller_response_fixture() -> None:
+    """Sensors should read the controller's observed response structure."""
+    coordinator = make_coordinator(load_status_fixture())
+    entry = make_entry()
+
+    assert WTHMainStateSensor(coordinator, entry).native_value == "OK"
+    assert WTHModeSensor(coordinator, entry).native_value == "heating"
+    assert WTHThermostatSensor(coordinator, entry, 0).native_value == "off"
+    assert WTHThermostatSensor(coordinator, entry, 5).native_value == "on"
 
 
 def test_shared_sensor_base_exposes_sensor_values() -> None:

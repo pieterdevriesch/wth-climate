@@ -1,0 +1,98 @@
+{
+  "type": "WTH_Regulator",
+  "id": "REDACTED",
+  "status": {
+    "version": {
+      "fw": "REDACTED",
+      "hw": "REDACTED",
+      "fwBuild": 0,
+      "json": "REDACTED"
+    },
+    "main": {
+      "state": "OK",
+      "message": "OK",
+      "kick": "off",
+      "display": " ",
+      "led": "Green On",
+      "button": false,
+      "mode": "heating",
+      "heatFactor": 0,
+      "coolFactor": 0,
+      "pwmFactor": 0,
+      "nightLowerActive": false,
+      "masterState": "isMaster",
+      "globalHeatFactor": 0,
+      "globalCoolFactor": 0,
+      "globalPwmFactor": 0
+    },
+    "inputs": {
+      "thermostats": [
+        {"index": 0, "isOn": false},
+        {"index": 1, "isOn": false},
+        {"index": 5, "isOn": true}
+      ],
+      "max": {
+        "state": "OK",
+        "message": "Contact Closed",
+        "temperature": 999.9
+      },
+      "return": {
+        "state": "OK",
+        "message": "Contact Closed",
+        "temperature": 999.9
+      },
+      "condens": {
+        "state": "OK",
+        "message": "Condens Inactive",
+        "value": 64114,
+        "temperature": 0.0
+      },
+      "tSensors": [
+        {"index": 0, "temperature": 0.0, "serialNumber": "REDACTED"}
+      ],
+      "powerstealing": {
+        "state": "OK",
+        "message": "OK"
+      }
+    },
+    "outputs": {
+      "heater": {"state": "off", "factor": 0},
+      "cooler": {"state": "off", "factor": 0},
+      "pump": {"speed": 0},
+      "valves": [
+        {"index": 0, "state": 0}
+      ]
+    },
+    "process": {
+      "thermostats": [
+        {"index": 0, "factor": 0, "temperature": 0.0, "setpoint": 0.0},
+        {"index": 1, "factor": 0, "temperature": 0.0, "setpoint": 20.0},
+        {"index": 5, "factor": 0, "temperature": 0.0, "setpoint": 20.0}
+      ],
+      "pid": {
+        "pValue": 0,
+        "iValue": 0,
+        "dValue": 0,
+        "pumpFactor": 0,
+        "valveFactor": 0
+      },
+      "communications": {
+        "fanlink": {"rawData": "REDACTED"},
+        "rf": {"rawData": "REDACTED"},
+        "modbus": {
+          "command": "REDACTED",
+          "rawData": "REDACTED"
+        }
+      }
+    },
+    "communications": {
+      "fanlink": {"state": "Connected", "devices": []},
+      "rf": {"state": "Connected", "devices": []},
+      "modbus": {"state": "Connected", "devices": []},
+      "bluetooth": {"state": "Connected", "devices": []},
+      "ethernet": {"state": "Connected"},
+      "json": {"state": "Connected"},
+      "usb": {"state": "Connected"}
+    }
+  }
+}
