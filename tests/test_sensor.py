@@ -13,8 +13,10 @@ from custom_components.wth_umr2.const import DOMAIN
 from custom_components.wth_umr2.sensor import (
     WTHCommunicationDeviceSensor,
     WTHFanlinkDeviceSensor,
+    WTHHeaterSensor,
     WTHMainStateSensor,
     WTHModeSensor,
+    WTHPIDSensor,
     WTHRFStatusSensor,
     WTHValveSensor,
     WTHTemperatureSensor,
@@ -92,6 +94,24 @@ def test_sensors_read_redacted_controller_response_fixture() -> None:
     assert WTHModeSensor(coordinator, entry).native_value == "heating"
     assert WTHThermostatSensor(coordinator, entry, 0).native_value == "off"
     assert WTHThermostatSensor(coordinator, entry, 5).native_value == "on"
+
+
+def test_zero_measurements_remain_valid_states() -> None:
+    """Zero output and PID values should not be treated as unavailable."""
+    coordinator = make_coordinator(
+        {
+            "outputs": {
+                "heater": {"factor": 0},
+                "valves": [{"index": 0, "state": 0}],
+            },
+            "process": {"pid": {"pValue": 0}},
+        }
+    )
+    entry = make_entry()
+
+    assert WTHHeaterSensor(coordinator, entry).native_value == 0
+    assert WTHValveSensor(coordinator, entry, 0).native_value == 0
+    assert WTHPIDSensor(coordinator, entry, "pValue", "PID P Value").native_value == 0
 
 
 def test_shared_sensor_base_exposes_sensor_values() -> None:
