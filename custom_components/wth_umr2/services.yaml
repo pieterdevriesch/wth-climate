@@ -1,10 +1,14 @@
 set_valve_mode:
   name: Set valve mode
   description: Set a WTH UMR2 valve mode and verify the setting.
-  target:
-    device:
-      integration: wth_umr2
   fields:
+    device_id:
+      name: Device
+      description: WTH UMR2 device to control.
+      required: true
+      selector:
+        device:
+          integration: wth_umr2
     valve_index:
       name: Valve index
       description: Zero-based valve index reported by the controller.
@@ -23,6 +27,6 @@ set_valve_mode:
       selector:
         select:
           options:
-            - auto
-            - off
-            - primHeat
+            - "auto"
+            - "off"
+            - "primHeat"
