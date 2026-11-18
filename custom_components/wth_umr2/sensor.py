@@ -359,6 +359,13 @@ class WTHThermostatSensor(WTHBaseSensor):
         self._index = index
         self._attr_name = f"Thermostat {index + 1}"
         self._attr_icon = "mdi:thermostat"
+        self._attr_entity_registry_enabled_default = (
+            _get_indexed_item(
+                coordinator.data.get("inputs", {}).get("thermostats", []),
+                index,
+            )
+            is not None
+        )
 
     @property
     def unique_id(self) -> str:
@@ -405,6 +412,13 @@ class WTHThermostatDemandSensor(WTHBaseSensor):
         super().__init__(coordinator, entry)
         self._index = index
         self._attr_name = f"Thermostat {index + 1} Demand"
+        self._attr_entity_registry_enabled_default = (
+            _get_indexed_item(
+                coordinator.data.get("process", {}).get("thermostats", []),
+                index,
+            )
+            is not None
+        )
 
     @property
     def unique_id(self) -> str:
@@ -433,10 +447,7 @@ class WTHThermostatTemperatureSensor(WTHBaseSensor):
         self._attr_name = f"Thermostat {index + 1} Temperature"
         thermostats = coordinator.data.get("process", {}).get("thermostats", [])
         thermostat = _get_indexed_item(thermostats, index)
-        temperature = thermostat.get("temperature") if thermostat else None
-        self._attr_entity_registry_enabled_default = (
-            isinstance(temperature, (int, float)) and temperature > 0
-        )
+        self._attr_entity_registry_enabled_default = thermostat is not None
 
     @property
     def unique_id(self) -> str:
@@ -477,6 +488,13 @@ class WTHValveSensor(WTHBaseSensor):
         super().__init__(coordinator, entry)
         self._index = index
         self._attr_name = f"Valve {index + 1}"
+        self._attr_entity_registry_enabled_default = (
+            _get_indexed_item(
+                coordinator.data.get("outputs", {}).get("valves", []),
+                index,
+            )
+            is not None
+        )
 
     @property
     def unique_id(self) -> str:
@@ -611,11 +629,8 @@ class WTHTemperatureSensor(WTHBaseSensor):
         self._index = index
         self._attr_name = f"Temperature Sensor {index + 1}"
         sensors = coordinator.data.get("inputs", {}).get("tSensors", [])
-        temperature = (
-            sensors[index].get("temperature") if index < len(sensors) else None
-        )
         self._attr_entity_registry_enabled_default = (
-            isinstance(temperature, (int, float)) and temperature > 0
+            _get_indexed_item(sensors, index) is not None
         )
 
     @property

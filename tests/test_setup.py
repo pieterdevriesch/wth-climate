@@ -19,6 +19,7 @@ class FakeConfigEntries:
     def __init__(self) -> None:
         """Initialize the manager."""
         self.async_forward_entry_setups = AsyncMock()
+        self.async_unload_platforms = AsyncMock(return_value=True)
 
 
 class FakeHass:
@@ -109,3 +110,19 @@ def test_setup_entry_shuts_down_and_propagates_unavailable_device(
     coordinator.async_config_entry_first_refresh.assert_awaited_once_with()
     coordinator.async_shutdown.assert_awaited_once_with()
     hass.config_entries.async_forward_entry_setups.assert_not_awaited()
+
+
+def test_unload_entry_shuts_down_coordinator() -> None:
+    """Unloading a config entry should stop coordinator updates."""
+    hass = FakeHass()
+    entry = make_entry()
+    coordinator = Mock(async_shutdown=AsyncMock())
+    entry.runtime_data = coordinator
+
+    result = run_async(integration.async_unload_entry(hass, entry))
+
+    assert result is True
+    hass.config_entries.async_unload_platforms.assert_awaited_once_with(
+        entry, integration.PLATFORMS
+    )
+    coordinator.async_shutdown.assert_awaited_once_with()

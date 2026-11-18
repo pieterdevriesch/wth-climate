@@ -55,4 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: WTHConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        await entry.runtime_data.async_shutdown()
+    return unload_ok

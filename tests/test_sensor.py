@@ -14,6 +14,7 @@ from custom_components.wth_umr2.sensor import (
     WTHMainStateSensor,
     WTHModeSensor,
     WTHRFStatusSensor,
+    WTHValveSensor,
     WTHTemperatureSensor,
     WTHThermostatSensor,
     WTHThermostatTemperatureSensor,
@@ -113,12 +114,14 @@ def test_indexed_temperature_sensors_use_controller_indexes() -> None:
 
     assert temperature.native_value == 18.5
     assert temperature.extra_state_attributes == {"serial_number": "abc"}
+    assert temperature.entity_registry_enabled_default is True
     assert thermostat_temperature.native_value == 21.0
     assert thermostat_temperature.extra_state_attributes == {"setpoint": 20.0}
+    assert thermostat_temperature.entity_registry_enabled_default is True
 
 
-def test_temperature_sensors_hide_non_positive_values() -> None:
-    """Non-positive controller temperatures should not become HA states."""
+def test_reported_zero_temperature_slots_remain_enabled() -> None:
+    """Reported temperature slots remain enabled even when their value is zero."""
     coordinator = make_coordinator(
         {
             "inputs": {"tSensors": [{"index": 0, "temperature": 0}]},
@@ -132,8 +135,28 @@ def test_temperature_sensors_hide_non_positive_values() -> None:
 
     assert temperature.native_value is None
     assert thermostat_temperature.native_value is None
-    assert temperature.entity_registry_enabled_default is False
-    assert thermostat_temperature.entity_registry_enabled_default is False
+    assert temperature.entity_registry_enabled_default is True
+    assert thermostat_temperature.entity_registry_enabled_default is True
+
+
+def test_absent_indexed_slots_are_disabled() -> None:
+    """Indexed slots absent from the controller response should be disabled."""
+    coordinator = make_coordinator(
+        {
+            "inputs": {"thermostats": [], "tSensors": []},
+            "process": {"thermostats": []},
+            "outputs": {"valves": []},
+        }
+    )
+    entry = make_entry()
+
+    assert WTHThermostatSensor(coordinator, entry, 0).entity_registry_enabled_default is False
+    assert (
+        WTHThermostatTemperatureSensor(coordinator, entry, 0)
+        .entity_registry_enabled_default
+        is False
+    )
+    assert WTHValveSensor(coordinator, entry, 0).entity_registry_enabled_default is False
 
 
 def test_diagnostic_sensors_expose_status_and_device_type() -> None:
