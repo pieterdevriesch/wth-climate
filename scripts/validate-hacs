@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cache="$repo_root/.hacs-validation"
+source="$cache/integration"
+
+for command in git uv; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "$command is required to run HACS validation." >&2
+        exit 1
+    fi
+done
+
+mkdir -p "$cache"
+if [ ! -d "$source" ]; then
+    git clone --depth 1 --branch main https://github.com/hacs/integration.git "$source"
+else
+    git -C "$source" fetch --depth 1 origin main
+    git -C "$source" switch --detach FETCH_HEAD
+fi
+
+python_version=$(cat "$source/.python-version")
+venv="$cache/venv-$python_version"
+if [ ! -x "$venv/bin/python" ]; then
+    uv venv --python "$python_version" "$venv"
+fi
+uv pip install --python "$venv/bin/python" -r "$source/requirements_action.txt"
+
+export PYTHONPATH="$source"
+exec "$venv/bin/python" "$repo_root/scripts/validate_hacs.py" "$repo_root"

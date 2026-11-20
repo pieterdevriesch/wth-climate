@@ -110,7 +110,7 @@ update failures. The integration does not provide authentication or TLS.
 ## Valve control
 
 The `wth_umr2.set_valve_mode` service changes one valve mode on the controller.
-Select the WTH UMR2 device as the service target, then provide:
+Select the WTH UMR2 device in the device field, then provide:
 
 - `valve_index`: a valve index from 0 through 9
 - `mode`: `auto`, `off`, or `primHeat`
@@ -133,6 +133,37 @@ physical change is wanted.
 
 This project is being cleaned up and reworked. The current implementation is
 small and intentionally documents only behavior present in the code.
+
+## Development
+
+Run hassfest before pushing to validate the integration with the upstream Home
+Assistant validator:
+
+```sh
+./scripts/hassfest
+```
+
+The command requires Git, `uv`, and network access. It downloads Home Assistant
+Core's development branch and a matching Python environment into the ignored
+`.hassfest/` directory, then updates them on subsequent runs. It skips two
+native audio dependencies that hassfest does not use; all validation plugins
+still run. Docker is not required.
+
+The GitHub Action uses the official hassfest container image, which may contain
+a different Core revision from the development branch.
+
+For HACS file checks against the local working tree, run:
+
+```sh
+./scripts/validate-hacs
+```
+
+This uses HACS's current manifest schemas and checks the local information file
+and brand icon. It requires Git, `uv`, and network access, and caches HACS and its
+Python environment in `.hacs-validation/`. GitHub metadata, releases, and the
+online brands fallback are not checked; the GitHub Action is still needed for
+full validation. The HACS checker tests skip until this command has prepared
+the environment.
 
 ## License
 

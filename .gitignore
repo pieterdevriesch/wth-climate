@@ -11,6 +11,8 @@ ENV/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hassfest/
+.hacs-validation/
 .coverage
 htmlcov/
 

@@ -56,6 +56,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             handle_set_valve_mode,
             schema=vol.Schema(
                 {
+                    vol.Required(ATTR_DEVICE_ID): cv.string,
                     vol.Required("valve_index"): vol.All(
                         vol.Coerce(int), vol.Range(min=0, max=9)
                     ),

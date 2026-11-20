@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.selector import selector
+from homeassistant.util.yaml import load_yaml
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import custom_components.wth_umr2 as integration
@@ -50,6 +54,47 @@ def make_entry() -> ConfigEntry:
 def run_async(coroutine: Any) -> Any:
     """Run a setup coroutine."""
     return asyncio.get_event_loop().run_until_complete(coroutine)
+
+
+def test_set_valve_mode_service_definition() -> None:
+    """The device and mode selectors must accept the service's values."""
+    services_path = Path(integration.__file__).parent / "services.yaml"
+    service = load_yaml(services_path)["set_valve_mode"]
+
+    assert "target" not in service
+    fields = service["fields"]
+    device_selector = selector(fields["device_id"]["selector"])
+    assert device_selector.config["integration"] == DOMAIN
+    assert device_selector("device-id") == "device-id"
+    mode_selector = selector(fields["mode"]["selector"])
+    for mode in ("auto", "off", "primHeat"):
+        assert mode_selector(mode) == mode
+
+
+def test_set_valve_mode_service_accepts_selected_device(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A selected device must pass validation and reach its coordinator."""
+    hass = Mock()
+    hass.services.has_service.return_value = False
+    entry = make_entry()
+    entry.runtime_data = Mock(async_set_valve_mode=AsyncMock())
+    hass.config_entries.async_get_entry.return_value = entry
+    registry = Mock()
+    registry.async_get.return_value.config_entries = {entry.entry_id}
+    monkeypatch.setattr(integration.dr, "async_get", Mock(return_value=registry))
+
+    run_async(integration.async_setup(hass, {}))
+    args, kwargs = hass.services.async_register.call_args
+    handler = args[2]
+    schema = kwargs["schema"]
+    data = schema({"device_id": "device-id", "valve_index": 4, "mode": "off"})
+    run_async(handler(Mock(data=data)))
+
+    registry.async_get.assert_called_once_with("device-id")
+    entry.runtime_data.async_set_valve_mode.assert_awaited_once_with(4, "off")
+    with pytest.raises(vol.Invalid):
+        schema({"valve_index": 4, "mode": "off"})
 
 
 def test_setup_entry_refreshes_forwards_platform_and_registers_device(

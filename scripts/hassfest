@@ -1,0 +1,54 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cache="$repo_root/.hassfest"
+core="$cache/core"
+
+for command in git uv; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "$command is required to run hassfest." >&2
+        exit 1
+    fi
+done
+
+mkdir -p "$cache"
+if [ ! -d "$core" ]; then
+    git clone --depth 1 --filter=blob:none --sparse --branch dev \
+        https://github.com/home-assistant/core.git "$core"
+    git -C "$core" sparse-checkout set script/hassfest packages/hassfest homeassistant
+else
+    git -C "$core" fetch --depth 1 origin dev
+    git -C "$core" switch --detach FETCH_HEAD
+fi
+
+python_version=$(sed -n 's/^FROM python:\([0-9][0-9.]*\)-alpine$/\1/p' \
+    "$core/script/hassfest/docker/Dockerfile")
+if [ -z "$python_version" ]; then
+    echo "Could not determine the upstream hassfest Python version." >&2
+    exit 1
+fi
+venv="$cache/venv-$python_version"
+if [ ! -x "$venv/bin/python" ]; then
+    uv venv --python "$python_version" "$venv"
+fi
+
+# These native audio extensions are not used by hassfest.
+sed '/^-c /d; /^pymicro-vad==/d; /^pyspeex-noise==/d' \
+    "$core/requirements.txt" > "$cache/requirements.txt"
+ruff=$(sed -n '/^ruff==/p' "$core/requirements_test_pre_commit.txt")
+pipdeptree=$(sed -n '/^pipdeptree==/p' "$core/requirements_test.txt")
+tqdm=$(sed -n '/^tqdm==/p' "$core/requirements_test.txt")
+if [ -z "$ruff" ] || [ -z "$pipdeptree" ] || [ -z "$tqdm" ]; then
+    echo "Could not determine the upstream hassfest tool versions." >&2
+    exit 1
+fi
+uv pip install --python "$venv/bin/python" \
+    -c "$core/homeassistant/package_constraints.txt" \
+    -r "$cache/requirements.txt" "$ruff" "$pipdeptree" "$tqdm"
+
+cd "$core"
+export PATH="$venv/bin:$PATH"
+export PYTHONPATH="$core:$core/packages/hassfest"
+exec "$venv/bin/python" -m script.hassfest --action validate \
+    --integration-path "$repo_root/custom_components/wth_umr2"
