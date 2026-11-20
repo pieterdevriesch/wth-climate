@@ -10,11 +10,12 @@ from custom_components.wth_umr2.diagnostics import (
 )
 from custom_components.wth_umr2.const import DOMAIN
 from homeassistant.config_entries import ConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 
 def make_entry(data: dict[str, Any]) -> ConfigEntry:
     """Create a config entry containing a fake coordinator."""
-    entry = ConfigEntry(
+    entry = MockConfigEntry(
         version=1,
         minor_version=1,
         domain=DOMAIN,
@@ -32,7 +33,7 @@ def make_entry(data: dict[str, Any]) -> ConfigEntry:
 
 def run_async(coroutine: Any) -> Any:
     """Run a diagnostics coroutine."""
-    return asyncio.run(coroutine)
+    return asyncio.get_event_loop().run_until_complete(coroutine)
 
 
 def test_diagnostics_include_safe_health_summary() -> None:

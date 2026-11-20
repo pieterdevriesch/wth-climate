@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.wth_umr2 import WTHCoordinator
 from custom_components.wth_umr2.const import DOMAIN
@@ -38,7 +39,7 @@ def make_coordinator(data: dict[str, Any]) -> WTHCoordinator:
 
 def make_entry() -> ConfigEntry:
     """Create a config entry for sensor tests."""
-    return ConfigEntry(
+    return MockConfigEntry(
         version=1,
         minor_version=1,
         domain=DOMAIN,
@@ -277,7 +278,9 @@ def test_sensor_setup_creates_documented_entity_count() -> None:
     def add_entities(new_entities: list[Any]) -> None:
         entities.extend(new_entities)
 
-    asyncio.run(async_setup_entry(object(), entry, add_entities))  # type: ignore[arg-type]
+    asyncio.get_event_loop().run_until_complete(
+        async_setup_entry(object(), entry, add_entities)  # type: ignore[arg-type]
+    )
 
     assert len(entities) == 115
     assert len({entity.unique_id for entity in entities}) == 115

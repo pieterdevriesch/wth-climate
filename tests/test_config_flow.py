@@ -52,7 +52,7 @@ class FakeSession:
 
 def run_async(coroutine: Any) -> Any:
     """Run a config flow coroutine."""
-    return asyncio.run(coroutine)
+    return asyncio.get_event_loop().run_until_complete(coroutine)
 
 
 def test_validate_input_accepts_valid_device(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.exceptions import ConfigEntryNotReady
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 import custom_components.wth_umr2 as integration
 from custom_components.wth_umr2.const import DOMAIN
@@ -32,7 +33,7 @@ class FakeHass:
 
 def make_entry() -> ConfigEntry:
     """Create a config entry for setup tests."""
-    return ConfigEntry(
+    return MockConfigEntry(
         version=1,
         minor_version=1,
         domain=DOMAIN,
@@ -48,7 +49,7 @@ def make_entry() -> ConfigEntry:
 
 def run_async(coroutine: Any) -> Any:
     """Run a setup coroutine."""
-    return asyncio.run(coroutine)
+    return asyncio.get_event_loop().run_until_complete(coroutine)
 
 
 def test_setup_entry_refreshes_forwards_platform_and_registers_device(

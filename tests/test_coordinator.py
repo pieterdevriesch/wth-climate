@@ -64,8 +64,8 @@ def make_coordinator(session: FakeSession) -> WTHCoordinator:
 
 
 def run_async(coroutine: Any) -> Any:
-    """Run a coroutine without the Windows HA event-loop fixture."""
-    return asyncio.run(coroutine)
+    """Run a coroutine on the test event loop."""
+    return asyncio.get_event_loop().run_until_complete(coroutine)
 
 
 def test_update_data_splits_and_merges_status_paths() -> None:
