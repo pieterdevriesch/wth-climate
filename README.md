@@ -1,5 +1,10 @@
 # WTH UMR2 Regulator for Home Assistant
 
+> **Pre-release warning:** This software is experimental and can change valve
+> modes, physically affecting your heating system. Use it at your own risk.
+> It is provided without warranty; the authors are not liable for damage or
+> loss, to the extent permitted by law. See the [MIT License](LICENSE).
+
 This custom Home Assistant integration monitors a WTH UMR2 heating regulator over
 the local network. It is not affiliated with WTH. In addition to sensor entities,
 it provides an explicit service for changing valve modes.
